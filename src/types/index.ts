@@ -1,0 +1,270 @@
+export type UserRole = 'farmer' | 'buyer';
+
+export type NavigationTab = 
+  | 'home' 
+  | 'my-farm' 
+  | 'soil-scan' 
+  | 'marketplace' 
+  | 'profile-settings'
+  | 'browse-crops'
+  | 'my-enquiries';
+
+export type SupportedLanguage = 
+  | 'en' // English
+  | 'hi' // Hindi (हिंदी)
+  | 'pa' // Punjabi (ਪੰਜਾਬੀ)
+  | 'mr' // Marathi (मराठी)
+  | 'te' // Telugu (తెలుగు)
+  | 'ta' // Tamil (தமிழ்)
+  | 'kn' // Kannada (ಕನ್ನಡ)
+  | 'gu' // Gujarati (ગુજરાતી)
+  | 'bn'; // Bengali (বাংলা)
+
+export type AreaUnit = 'acres' | 'hectares' | 'bigha' | 'guntha';
+export type WeightUnit = 'quintal' | 'kg' | 'ton';
+export type TemperatureUnit = 'celsius' | 'fahrenheit';
+
+export type GrowthStage = 
+  | 'Sowing / Germination'
+  | 'Tillering / Vegetative'
+  | 'Flowering / Booting'
+  | 'Grain / Fruit Formation'
+  | 'Ripening / Maturity'
+  | 'Harvest Ready';
+
+export type SoilType = 
+  | 'Alluvial Soil'
+  | 'Black Soil (Regur)'
+  | 'Red and Yellow Soil'
+  | 'Laterite Soil'
+  | 'Sandy Loam'
+  | 'Clay Loam'
+  | 'Mountain / Forest Soil';
+
+export interface CropRecord {
+  id: string;
+  name: string;
+  variety: string;
+  fieldName: string;
+  area: number;
+  areaUnit: AreaUnit;
+  sowingDate: string;
+  currentStage: GrowthStage;
+  estimatedHarvestDate: string;
+  soilType: SoilType;
+  notes: string;
+  healthStatus: 'healthy' | 'attention' | 'critical';
+  updatedAt: string;
+}
+
+export interface FarmObservation {
+  id: string;
+  date: string;
+  cropName?: string;
+  fieldName: string;
+  category: 'Irrigation' | 'Weeding' | 'Pest & Disease' | 'Fertilizer' | 'Weather' | 'General';
+  notes: string;
+}
+
+export interface SoilLabResults {
+  pH?: number;
+  nitrogenKgHa?: number; // Available N in kg/ha
+  phosphorusKgHa?: number; // Available P in kg/ha
+  potassiumKgHa?: number; // Available K in kg/ha
+  organicCarbonPercent?: number; // OC %
+  electricalConductivity?: number; // EC dS/m
+}
+
+export interface SoilAiAnalysis {
+  isSuitable: boolean;
+  unsuitableReason?: string | null;
+  visibleObservations: {
+    apparentColor: string;
+    visibleTextureParticles: string;
+    coarseFragmentsStones: string;
+    visibleOrganicResidue: string;
+    surfaceMoistureAppearance: string;
+  };
+  possibleCharacteristics: {
+    characteristic: string;
+    explanation: string;
+    uncertaintyNote: string;
+  }[];
+  limitationsAndConfidence: {
+    confidenceLevel: string;
+    limitations: string[];
+  };
+  recommendedNextSteps: string[];
+  soilTestNeededReminder: string;
+  analyzedAt: string;
+  modelUsed?: string;
+}
+
+export interface SoilScanRecord {
+  id: string;
+  date: string;
+  fieldName: string;
+  soilPhotoUrl?: string;
+  knownSoilType?: SoilType;
+  soilMoisture?: 'Dry' | 'Moist / Optimal' | 'Wet / Saturated';
+  fieldDrainage?: 'Well-Drained' | 'Moderate' | 'Poor / Waterlogged';
+  observations: string;
+  aiAnalysis?: SoilAiAnalysis;
+  isAiAnalyzed?: boolean;
+  farmContext?: {
+    villageOrDistrict?: string;
+    state?: string;
+    primarySoilType?: string;
+  };
+  labResults?: SoilLabResults;
+  isLabVerified: boolean;
+  notes?: string;
+}
+
+export interface CropDoctorInquiry {
+  id: string;
+  date: string;
+  cropName: string;
+  growthStage: GrowthStage;
+  symptoms: string[];
+  affectedParts: ('Leaves' | 'Stem' | 'Roots' | 'Flowers' | 'Fruit / Grain')[];
+  description: string;
+  photoUrl?: string;
+  soilMoistureContext?: string;
+  farmerNotes?: string;
+}
+
+export interface FertilizerPlanQuery {
+  id: string;
+  date: string;
+  cropName: string;
+  growthStage: GrowthStage;
+  targetYieldQuintals?: number;
+  soilTestReportAvailable: boolean;
+  organicManureUsed: boolean;
+  soilType?: SoilType;
+  notes?: string;
+}
+
+export interface MarketListing {
+  id: string;
+  title: string;
+  cropCategory: 'Grains & Cereals' | 'Pulses' | 'Vegetables' | 'Fruits' | 'Oilseeds' | 'Spices' | 'Seeds';
+  variety: string;
+  quantity: number;
+  unit: WeightUnit;
+  expectedPrice: number; // in INR
+  priceUnit: string; // e.g., 'per quintal' or 'per kg'
+  location: string;
+  state: string;
+  sellerId?: string; // ID of the farmer who created the listing
+  sellerName: string;
+  sellerType: 'Farmer' | 'FPO (Farmer Producer Org)' | 'Buyer / Trader';
+  contactPhone?: string;
+  grade: 'Grade A (Premium)' | 'Grade B (Standard)' | 'Organic Certified';
+  harvestAvailability?: string; // e.g., 'Ready for Immediate Dispatch', 'Harvest in 7 Days'
+  isDemonstration: boolean;
+  datePosted: string;
+  description: string;
+  photoUrl?: string;
+}
+
+export interface BuyerProfile {
+  id: string;
+  name: string;
+  businessName: string;
+  businessType: 'Wholesale Trader' | 'Retailer' | 'Food Processor / Miller' | 'Exporter' | 'Commission Agent / Mandi Trader';
+  location: string;
+  state: string;
+  contactNumber: string;
+  email?: string;
+  preferredLanguage: SupportedLanguage;
+  preferredCategories: string[];
+}
+
+export interface CropEnquiry {
+  id: string;
+  listingId: string;
+  listingTitle: string;
+  farmerName: string;
+  sellerPhone?: string;
+  sellerId?: string;
+  buyerId: string;
+  buyerName: string;
+  buyerPhone: string;
+  buyerBusiness?: string;
+  buyerLocation?: string;
+  requestedQuantity: number;
+  unit: WeightUnit;
+  offeredPrice?: number;
+  priceUnit?: string;
+  message: string;
+  createdAt: string;
+  status: 'Pending Response' | 'Accepted' | 'Declined' | 'Contacted';
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  preferredLanguage: SupportedLanguage;
+}
+
+export interface AuthSession {
+  token: string;
+  user: AuthUser;
+  profile: FarmerProfile | BuyerProfile;
+}
+
+export interface FarmerProfile {
+  userId?: string;
+  email?: string;
+  name: string;
+  farmName: string;
+  villageOrDistrict: string;
+  state: string;
+  contactNumber: string;
+  preferredLanguage: SupportedLanguage;
+  preferredAreaUnit: AreaUnit;
+  preferredWeightUnit: WeightUnit;
+  preferredTempUnit: TemperatureUnit;
+  totalFarmArea: number;
+  primarySoilType: SoilType;
+}
+
+export interface CurrentWeatherReport {
+  time: string;
+  temperature: number;
+  humidity: number;
+  dewPoint: number;
+  windSpeed: number;
+  precipitationProbability: number;
+  weatherCode: number;
+  weatherDescription: string;
+  soilTemperature0cm?: number;
+  soilTemperature6cm?: number;
+  soilMoisture0to1cm?: number; // m³/m³
+  soilMoisture1to3cm?: number; // m³/m³
+}
+
+export interface HourlyForecastPoint {
+  time: string;
+  hourLabel: string;
+  temperature: number;
+  humidity: number;
+  windSpeed: number;
+  precipitationProbability: number;
+  weatherCode: number;
+}
+
+export interface WeatherDataState {
+  current: CurrentWeatherReport;
+  hourly: HourlyForecastPoint[];
+  lastUpdatedIST: string;
+  latitude: number;
+  longitude: number;
+  locationName: string;
+  isStale?: boolean;
+}

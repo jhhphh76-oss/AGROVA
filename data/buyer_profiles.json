@@ -1,0 +1,20 @@
+{
+  "usr-1791797173065-6dba501c": {
+    "id": "usr-1791797173065-6dba501c",
+    "userId": "usr-1791797173065-6dba501c",
+    "name": "Rajesh Kumar",
+    "businessName": "Karnataka Agri Procurement Ltd",
+    "businessType": "Wholesale Trader",
+    "location": "Vijayapura APMC",
+    "state": "Karnataka",
+    "contactNumber": "",
+    "email": "agrova.buyer.test@example.com",
+    "preferredLanguage": "kn",
+    "preferredCategories": [
+      "Grains & Cereals",
+      "Pulses",
+      "Vegetables",
+      "Oilseeds"
+    ]
+  }
+}

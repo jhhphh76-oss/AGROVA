@@ -1,0 +1,22 @@
+[
+  {
+    "id": "usr-1791797167240-d2b1c988",
+    "name": "Ananya R. Patil",
+    "email": "agrova.farmer.test@example.com",
+    "role": "farmer",
+    "passwordHash": "f7c862b23ca38f96d5c7cfe18bd0f9daa62288b111c78facde00ca172480b2968ab978e5a329e4d309bac474010b3fbca776c0cab1a085e996f8933fd0daa93c",
+    "salt": "af6f8a218ba7355955fda9a3845132bf",
+    "createdAt": "2026-10-12T09:26:07.240Z",
+    "preferredLanguage": "kn"
+  },
+  {
+    "id": "usr-1791797173065-6dba501c",
+    "name": "Rajesh Kumar",
+    "email": "agrova.buyer.test@example.com",
+    "role": "buyer",
+    "passwordHash": "0543d60730e0c96f5887fa630f8657bea684dd610e6beda8f43f6cf751eff1977c3b6c543ee8379b11d99eb12fa91bf698f0074732fcbb388b354d758a0f7ffc",
+    "salt": "a8b20bc2ad3ebc9dad06fa604c5ab9b6",
+    "createdAt": "2026-10-12T09:26:13.066Z",
+    "preferredLanguage": "kn"
+  }
+]
