@@ -33,7 +33,6 @@ interface MyFarmScreenProps {
   soilScans: SoilScanRecord[];
   onUpdateProfile: (profile: FarmerProfile) => void;
   onRefreshData: () => void;
-  onOpenCropDoctorWithCrop: (cropName: string) => void;
   onOpenFertilizerWithCrop: (cropName: string) => void;
   language: SupportedLanguage;
 }
@@ -64,13 +63,15 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
   soilScans,
   onUpdateProfile,
   onRefreshData,
-  onOpenCropDoctorWithCrop,
   onOpenFertilizerWithCrop,
   language,
 }) => {
   const t = TRANSLATIONS[language]?.myFarm || TRANSLATIONS.en.myFarm;
 
   const [activeSubTab, setActiveSubTab] = useState<'crops' | 'observations' | 'soilTests'>('crops');
+  
+  // Safe item deletion state (modal-based)
+  const [itemToDelete, setItemToDelete] = useState<{ type: 'crop' | 'observation'; id: string; name: string } | null>(null);
   
   // Farm Profile Edit Modal
   const [isEditingFarm, setIsEditingFarm] = useState<boolean>(false);
@@ -174,9 +175,22 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
     onRefreshData();
   };
 
-  const handleDeleteCrop = (id: string) => {
-    if (confirm('Delete this crop record?')) {
-      storageService.deleteCrop(id);
+  const handleDeleteCrop = (id: string, name: string) => {
+    setItemToDelete({ type: 'crop', id, name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    try {
+      if (itemToDelete.type === 'crop') {
+        await storageService.deleteCrop(itemToDelete.id);
+      } else {
+        await storageService.deleteObservation(itemToDelete.id);
+      }
+    } catch (e) {
+      console.error('Delete item failed:', e);
+    } finally {
+      setItemToDelete(null);
       onRefreshData();
     }
   };
@@ -201,9 +215,8 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
     onRefreshData();
   };
 
-  const handleDeleteObservation = (id: string) => {
-    storageService.deleteObservation(id);
-    onRefreshData();
+  const handleDeleteObservation = (id: string, name: string) => {
+    setItemToDelete({ type: 'observation', id, name });
   };
 
   return (
@@ -371,7 +384,7 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteCrop(crop.id)}
+                          onClick={() => handleDeleteCrop(crop.id, crop.name)}
                           className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition"
                           title="Delete Crop"
                         >
@@ -419,24 +432,15 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
                       </p>
                     )}
 
-                    {/* Quick Context Action Buttons */}
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#edf3ea]">
+                    {/* Quick Context Action: Fertilizer Guidance */}
+                    <div className="pt-1 border-t border-[#edf3ea]">
                       <button
                         onClick={() => onOpenFertilizerWithCrop(crop.name)}
-                        className="flex items-center justify-center gap-1.5 py-2 px-2 min-h-[40px] rounded-xl bg-[#edf5eb] hover:bg-[#e1eedc] text-[#14492a] text-[11px] sm:text-xs font-bold transition min-w-0"
+                        className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 min-h-[40px] rounded-xl bg-[#edf5eb] hover:bg-[#e1eedc] text-[#14492a] text-xs font-bold transition min-w-0"
                         title={t.fertilizerGuidance}
                       >
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                        <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
                         <span className="truncate">{t.fertilizerGuidance}</span>
-                      </button>
-
-                      <button
-                        onClick={() => onOpenCropDoctorWithCrop(crop.name)}
-                        className="flex items-center justify-center gap-1.5 py-2 px-2 min-h-[40px] rounded-xl bg-[#f7faf5] border border-[#dbe7d5] hover:bg-white text-[#25462f] text-[11px] sm:text-xs font-bold transition min-w-0"
-                        title={t.diagnoseProblem}
-                      >
-                        <Stethoscope className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-                        <span className="truncate">{t.diagnoseProblem}</span>
                       </button>
                     </div>
                   </div>
@@ -499,8 +503,8 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
                   </div>
 
                   <button
-                    onClick={() => handleDeleteObservation(obs.id)}
-                    className="text-slate-400 hover:text-red-600 p-1 rounded-lg transition shrink-0"
+                    onClick={() => handleDeleteObservation(obs.id, `${obs.cropName ? `${obs.cropName} - ` : ''}${obs.category} observation`)}
+                    className="text-slate-400 hover:text-red-600 p-1.5 rounded-lg transition shrink-0"
                     title="Delete Note"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -1003,6 +1007,41 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Safe In-App Deletion Confirmation Modal */}
+      {itemToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-red-50 border border-red-200 text-red-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            <div className="text-center space-y-1">
+              <h3 className="text-sm font-bold text-slate-800">
+                Delete {itemToDelete.type === 'crop' ? 'Crop' : 'Observation'} Record?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to delete <strong className="text-slate-700">{itemToDelete.name}</strong>? This record will be permanently removed.
+              </p>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setItemToDelete(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition shadow-xs"
+              >
+                Delete Record
+              </button>
+            </div>
           </div>
         </div>
       )}

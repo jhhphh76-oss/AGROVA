@@ -19,9 +19,10 @@ import {
   Image as ImageIcon,
   User
 } from 'lucide-react';
-import { MarketListing, SupportedLanguage, CropEnquiry } from '../types';
+import { MarketListing, SupportedLanguage, CropEnquiry, PlantScanRecord } from '../types';
 import { TRANSLATIONS } from '../constants/translations';
 import { storageService } from '../services/storage';
+import { cropHealthService } from '../services/cropHealthService';
 
 interface MarketplaceScreenProps {
   listings: MarketListing[];
@@ -32,6 +33,7 @@ interface MarketplaceScreenProps {
   sellerName?: string;
   sellerPhone?: string;
   sellerLocation?: string;
+  plantScans?: PlantScanRecord[];
 }
 
 const CATEGORIES: MarketListing['cropCategory'][] = [
@@ -53,6 +55,7 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
   sellerName,
   sellerPhone,
   sellerLocation,
+  plantScans = [],
 }) => {
   const t = TRANSLATIONS[language]?.marketplace || TRANSLATIONS.en.marketplace;
 
@@ -128,6 +131,8 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
 
     setIsPublishing(true);
 
+    const assessment = cropHealthService.calculateCropHealth(plantScans, formTitle.trim() || formVariety.trim());
+
     const newListingData: Partial<MarketListing> = {
       title: formTitle.trim(),
       cropCategory: formCategory,
@@ -148,6 +153,14 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
       datePosted: new Date().toISOString().split('T')[0],
       description: formDesc.trim() || 'Harvest-ready crop listing directly from the farmer.',
       photoUrl: formPhoto || undefined,
+      cropHealthAssessment: assessment
+        ? {
+            score: assessment.score,
+            grade: assessment.grade,
+            evaluatedAt: assessment.latestScanDate,
+            notes: `AGROVA scan assessment: ${assessment.score}% (Grade ${assessment.grade}) from ${assessment.validScansCount} verified leaf scan(s).`,
+          }
+        : null,
     };
 
     const result = await storageService.saveMarketListing(newListingData, 'farmer', farmerId);
@@ -394,6 +407,21 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
                             <span className="text-[10px] text-slate-500 font-normal">/{item.priceUnit}</span>
                           </span>
                         </div>
+                      </div>
+
+                      {/* AGROVA Scan-Based Crop Health Assessment */}
+                      <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-[#f4f8f2] border border-[#dce8d5]">
+                        <span className="flex items-center gap-1 font-semibold text-[#144225]">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                          <span>Crop Health:</span>
+                        </span>
+                        {item.cropHealthAssessment ? (
+                          <span className="font-bold text-emerald-900">
+                            {item.cropHealthAssessment.score}% (Grade {item.cropHealthAssessment.grade})
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 italic">Not assessed yet</span>
+                        )}
                       </div>
 
                       {/* Location & Seller */}

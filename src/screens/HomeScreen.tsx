@@ -1,24 +1,26 @@
 import React from 'react';
 import { 
   ScanLine, 
-  Stethoscope, 
   Sparkles, 
   Store, 
   Sprout, 
   ArrowRight, 
   Clock, 
   MapPin, 
-  Layers
+  Layers,
+  ShieldCheck,
+  Info
 } from 'lucide-react';
-import { FarmerProfile, CropRecord, NavigationTab, SupportedLanguage } from '../types';
+import { FarmerProfile, CropRecord, NavigationTab, SupportedLanguage, PlantScanRecord } from '../types';
 import { TRANSLATIONS } from '../constants/translations';
 import { WeatherWidget } from '../components/WeatherWidget';
+import { cropHealthService } from '../services/cropHealthService';
 
 interface HomeScreenProps {
   profile: FarmerProfile;
   crops: CropRecord[];
+  plantScans?: PlantScanRecord[];
   onNavigateTab: (tab: NavigationTab) => void;
-  onOpenCropDoctor: () => void;
   onOpenFertilizer: () => void;
   language: SupportedLanguage;
   enquiriesCount?: number;
@@ -27,15 +29,16 @@ interface HomeScreenProps {
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   profile,
   crops,
+  plantScans = [],
   onNavigateTab,
-  onOpenCropDoctor,
   onOpenFertilizer,
   language,
   enquiriesCount = 0,
 }) => {
   const t = TRANSLATIONS[language]?.home || TRANSLATIONS.en.home;
 
-  const healthyCount = crops.filter((c) => c.healthStatus === 'healthy').length;
+  // Derive crop health strictly from valid available Plant Scan results using documented scoring
+  const cropHealth = cropHealthService.calculateCropHealth(plantScans);
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-8 animate-in fade-in duration-150">
@@ -84,15 +87,48 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </span>
             </div>
 
-            <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-2 sm:p-2.5 text-center border border-white/10 min-w-0">
+            {/* Crop Health derived from valid Plant Scans with AGROVA A+ Grading */}
+            <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-2 sm:p-2.5 text-center border border-white/10 min-w-0 flex flex-col justify-center">
               <span className="text-[10px] text-emerald-200 uppercase tracking-wider block font-medium truncate">
-                Crop Health
+                {t.cropHealth || 'Crop Health'}
               </span>
-              <span className="text-base sm:text-lg font-bold font-display tabular-nums text-emerald-300 block mt-0.5">
-                {crops.length > 0 ? `${Math.round((healthyCount / crops.length) * 100)}%` : '100%'}
-              </span>
+              {cropHealth ? (
+                <div className="mt-0.5">
+                  <div className="flex items-baseline justify-center gap-1">
+                    <span className="text-base sm:text-lg font-bold font-display tabular-nums text-emerald-300">
+                      {cropHealth.score}%
+                    </span>
+                    <span className="text-[11px] font-black px-1.5 py-0.2 rounded-full bg-emerald-400/20 text-emerald-200 border border-emerald-400/30">
+                      {cropHealth.grade}
+                    </span>
+                  </div>
+                  <span className="text-[9px] text-emerald-200/80 block truncate">
+                    {cropHealth.validScansCount} scan{cropHealth.validScansCount > 1 ? 's' : ''}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs sm:text-sm font-semibold text-emerald-200/90 block mt-1">
+                  {t.notAssessedYet || 'Not assessed yet'}
+                </span>
+              )}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Explanatory note on AGROVA scan-based grading */}
+      <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-2xl bg-[#edf6eb] border border-[#d2e5cc] text-[11px] text-[#1a4b2c] leading-relaxed">
+        <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          {cropHealth ? (
+            <span>
+              <strong>Foliage Health Assessment:</strong> {cropHealth.score}% (Grade {cropHealth.grade}) based on {cropHealth.validScansCount} verified leaf scan{cropHealth.validScansCount > 1 ? 's' : ''}. Thresholds: 95–100%: A+, 85–94%: A, 70–84%: B, 50–69%: C, &lt;50%: D (AGROVA proposed product thresholds, not an established agricultural standard). Foliage observations and soil tests are strictly separated.
+            </span>
+          ) : (
+            <span>
+              <strong>Crop Health Status:</strong> Not assessed yet. No verified plant leaf scans recorded. In-field plant health is evaluated strictly from leaf scans; missing data is never assumed to be healthy, and soil tests are not combined into this score.
+            </span>
+          )}
         </div>
       </div>
 
@@ -113,8 +149,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <span className="text-xs text-slate-500">Tap to open</span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
-          {/* Action 1: Soil Scan */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+          {/* Action 1: Unified Scan (Plant & Soil) */}
           <button
             onClick={() => onNavigateTab('soil-scan')}
             className="flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-white border border-[#dce8d5] shadow-2xs hover:border-[#a8d3a1] hover:bg-[#fafdf9] transition text-left group min-h-[84px]"
@@ -125,7 +161,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1">
                 <h3 className="text-xs sm:text-sm font-bold text-[#133e24] group-hover:text-emerald-700 transition-colors font-display truncate">
-                  {t.soilScanAction}
+                  {t.soilScanAction || 'Scan'}
                 </h3>
                 <ArrowRight className="w-4 h-4 text-emerald-600 transition-transform group-hover:translate-x-1 shrink-0" />
               </div>
@@ -135,28 +171,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           </button>
 
-          {/* Action 2: Crop Doctor */}
-          <button
-            onClick={onOpenCropDoctor}
-            className="flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-white border border-[#dce8d5] shadow-2xs hover:border-[#a8d3a1] hover:bg-[#fafdf9] transition text-left group min-h-[84px]"
-          >
-            <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-[#eef7ec] text-[#124429] flex items-center justify-center shrink-0 border border-[#cfe2ca] group-hover:scale-105 transition-transform">
-              <Stethoscope className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-700 shrink-0" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-1">
-                <h3 className="text-xs sm:text-sm font-bold text-[#133e24] group-hover:text-emerald-700 transition-colors font-display truncate">
-                  {t.cropDoctorAction}
-                </h3>
-                <ArrowRight className="w-4 h-4 text-emerald-600 transition-transform group-hover:translate-x-1 shrink-0" />
-              </div>
-              <p className="text-xs text-[#526a57] mt-1 line-clamp-2 leading-relaxed">
-                {t.cropDoctorDesc}
-              </p>
-            </div>
-          </button>
-
-          {/* Action 3: Fertilizer Guidance */}
+          {/* Action 2: Fertilizer Guidance */}
           <button
             onClick={onOpenFertilizer}
             className="flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-white border border-[#dce8d5] shadow-2xs hover:border-[#a8d3a1] hover:bg-[#fafdf9] transition text-left group min-h-[84px]"
@@ -177,7 +192,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           </button>
 
-          {/* Action 4: Marketplace */}
+          {/* Action 3: Marketplace */}
           <button
             onClick={() => onNavigateTab('marketplace')}
             className="flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl bg-white border border-[#dce8d5] shadow-2xs hover:border-[#a8d3a1] hover:bg-[#fafdf9] transition text-left group min-h-[84px] relative"
@@ -193,7 +208,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </h3>
                   {enquiriesCount > 0 && (
                     <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900 border border-amber-300">
-                      {enquiriesCount} Enquiries
+                      {enquiriesCount}
                     </span>
                   )}
                 </div>

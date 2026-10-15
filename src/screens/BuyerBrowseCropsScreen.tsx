@@ -362,6 +362,36 @@ export const BuyerBrowseCropsScreen: React.FC<BuyerBrowseCropsScreenProps> = ({
                 </p>
               )}
 
+              {/* AGROVA Scan-Based Crop Health Assessment */}
+              <div className="p-3 rounded-xl bg-[#f5f9f3] border border-[#d8e8d3] space-y-1.5 text-xs">
+                <div className="flex items-center justify-between flex-wrap gap-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-[#144225]">
+                    <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>AGROVA Crop-Health Assessment</span>
+                  </div>
+                  {listing.cropHealthAssessment ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-extrabold text-[#113d23] text-sm tabular-nums">
+                        {listing.cropHealthAssessment.score}%
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        Grade {listing.cropHealthAssessment.grade}
+                      </span>
+                    </div>
+                  ) : (
+                    <span className="text-[11px] font-semibold text-slate-500 italic">
+                      Not assessed yet
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {listing.cropHealthAssessment
+                    ? `Assessment score: ${listing.cropHealthAssessment.score}% (Grade ${listing.cropHealthAssessment.grade}). Represents AGROVA's scan-based plant health assessment from leaf scans (${listing.cropHealthAssessment.evaluatedAt}). Proposed thresholds: 95–100%: A+, 85–94%: A, 70–84%: B, 50–69%: C, <50%: D (product thresholds, not an established agricultural standard). Separate from produce quality, harvest yield, pesticide safety, or organic certification; does not guarantee crop quality.`
+                    : 'Not assessed yet — No verified plant leaf scans registered for this crop lot. In-field foliage health has not been assessed.'}
+                </p>
+              </div>
+
               {/* Seller Information & Action */}
               <div className="flex flex-wrap items-center justify-between gap-3 pt-1 border-t border-slate-100">
                 <div className="text-xs text-slate-700">

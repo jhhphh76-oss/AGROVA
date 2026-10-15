@@ -100,6 +100,62 @@ export interface SoilAiAnalysis {
   modelUsed?: string;
 }
 
+export interface PlantAiAnalysis {
+  isSuitable: boolean;
+  unsuitableReason?: string | null;
+  cropTypeIdentified?: string;
+  confidenceNote: string;
+  visibleObservations: {
+    plantPartsVisible: string[];
+    foliarCondition: string;
+    pestOrPathogenSigns: string;
+    overallVigor: string;
+  };
+  possibleExplanations: {
+    cause: string;
+    likelihood: 'Possible' | 'Uncertain' | 'Requires In-Field Confirmation';
+    explanation: string;
+    uncertaintyNote: string;
+  }[];
+  followUpQuestions: string[];
+  practicalNextSteps: string[];
+  preventionGuidance: string[];
+  scientificCaution: string;
+  analyzedAt: string;
+  modelUsed?: string;
+}
+
+export interface PlantScanRecord {
+  id: string;
+  date: string;
+  fieldName: string;
+  cropName?: string;
+  growthStage?: GrowthStage;
+  photoUrl?: string;
+  observations: string;
+  aiAnalysis?: PlantAiAnalysis;
+  isAiAnalyzed?: boolean;
+  farmContext?: {
+    fieldName?: string;
+    cropName?: string;
+    villageOrDistrict?: string;
+    state?: string;
+  };
+}
+
+export interface AdvisorMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
+  sharedScanContext?: {
+    type: 'plant' | 'soil';
+    summary: string;
+    scanRecordId?: string;
+    photoUrl?: string;
+  };
+}
+
 export interface SoilScanRecord {
   id: string;
   date: string;
@@ -167,6 +223,12 @@ export interface MarketListing {
   datePosted: string;
   description: string;
   photoUrl?: string;
+  cropHealthAssessment?: {
+    score: number;
+    grade: 'A+' | 'A' | 'B' | 'C' | 'D';
+    evaluatedAt: string;
+    notes?: string;
+  } | null;
 }
 
 export interface BuyerProfile {
@@ -262,9 +324,18 @@ export interface HourlyForecastPoint {
 export interface WeatherDataState {
   current: CurrentWeatherReport;
   hourly: HourlyForecastPoint[];
-  lastUpdatedIST: string;
+  lastUpdatedIST: string; // Preserved for backwards compatibility
+  dataFetchTime: string; // Timestamp when the application fetched the data from Open-Meteo
+  weatherObservationTime: string; // Timestamp when Open-Meteo recorded/modeled the weather values
+  timezone: string; // e.g., 'Asia/Kolkata', 'Asia/Tokyo'
+  timezoneAbbreviation: string; // e.g., 'GMT+5:30', 'GMT+9'
+  utcOffsetSeconds?: number;
+  dataSource: string; // e.g., 'Open-Meteo Weather API (open-meteo.com)'
   latitude: number;
   longitude: number;
   locationName: string;
+  city?: string;
+  region?: string;
+  country?: string;
   isStale?: boolean;
 }

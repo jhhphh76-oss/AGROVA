@@ -8,6 +8,7 @@ import {
   CropRecord, 
   FarmObservation, 
   SoilScanRecord, 
+  PlantScanRecord,
   MarketListing,
   CropEnquiry,
   AuthUser
@@ -27,7 +28,6 @@ import { BuyerHomeScreen } from './screens/BuyerHomeScreen';
 import { BuyerBrowseCropsScreen } from './screens/BuyerBrowseCropsScreen';
 import { BuyerEnquiriesScreen } from './screens/BuyerEnquiriesScreen';
 import { BuyerMarketplaceScreen } from './screens/BuyerMarketplaceScreen';
-import { CropDoctorModal } from './components/CropDoctorModal';
 import { FertilizerGuidanceModal } from './components/FertilizerGuidanceModal';
 import { LANGUAGES } from './constants/translations';
 import { Globe, X, Check } from 'lucide-react';
@@ -61,12 +61,11 @@ export default function App() {
   const [crops, setCrops] = useState<CropRecord[]>([]);
   const [observations, setObservations] = useState<FarmObservation[]>([]);
   const [soilScans, setSoilScans] = useState<SoilScanRecord[]>([]);
+  const [plantScans, setPlantScans] = useState<PlantScanRecord[]>([]);
   const [marketListings, setMarketListings] = useState<MarketListing[]>([]);
   const [enquiries, setEnquiries] = useState<CropEnquiry[]>([]);
 
-  // Modals for Crop Doctor & Fertilizer Guidance
-  const [isCropDoctorOpen, setIsCropDoctorOpen] = useState<boolean>(false);
-  const [selectedCropForDoctor, setSelectedCropForDoctor] = useState<string | undefined>(undefined);
+  // Fertilizer Guidance Modal
   const [isFertilizerOpen, setIsFertilizerOpen] = useState<boolean>(false);
   const [selectedCropForFertilizer, setSelectedCropForFertilizer] = useState<string | undefined>(undefined);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
@@ -115,6 +114,7 @@ export default function App() {
     setCrops(storageService.getCrops());
     setObservations(storageService.getObservations());
     setSoilScans(storageService.getSoilScans());
+    setPlantScans(storageService.getPlantScans());
 
     // Load listings from cache first, then sync with API
     const cachedListings = storageService.getMarketListings();
@@ -126,6 +126,8 @@ export default function App() {
     try {
       const freshListings = await storageService.fetchMarketListings();
       setMarketListings(freshListings);
+      const freshPlantScans = await storageService.fetchPlantScans();
+      setPlantScans(freshPlantScans);
       const effectiveUserId = currentUser?.id || (role === 'farmer' ? 'farmer-user-1' : (bProf.id || 'buyer-user-1'));
       const freshEnquiries = await storageService.fetchEnquiries(
         role,
@@ -204,11 +206,6 @@ export default function App() {
     setIsLanguageModalOpen(false);
   };
 
-  const handleOpenCropDoctor = (cropName?: string) => {
-    setSelectedCropForDoctor(cropName);
-    setIsCropDoctorOpen(true);
-  };
-
   const handleOpenFertilizer = (cropName?: string) => {
     setSelectedCropForFertilizer(cropName);
     setIsFertilizerOpen(true);
@@ -247,11 +244,11 @@ export default function App() {
               <HomeScreen
                 profile={profile}
                 crops={crops}
+                plantScans={plantScans}
                 onNavigateTab={(tab) => {
                   setActiveTab(tab);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                onOpenCropDoctor={() => handleOpenCropDoctor()}
                 onOpenFertilizer={() => handleOpenFertilizer()}
                 language={language}
                 enquiriesCount={enquiries.length}
@@ -266,7 +263,6 @@ export default function App() {
                 soilScans={soilScans}
                 onUpdateProfile={(p) => setProfile(p)}
                 onRefreshData={loadAllData}
-                onOpenCropDoctorWithCrop={(c) => handleOpenCropDoctor(c)}
                 onOpenFertilizerWithCrop={(c) => handleOpenFertilizer(c)}
                 language={language}
               />
@@ -292,6 +288,7 @@ export default function App() {
                 sellerName={profile.name}
                 sellerPhone={profile.contactNumber}
                 sellerLocation={`${profile.villageOrDistrict || 'Vijayapura'}, ${profile.state || 'Karnataka'}`}
+                plantScans={plantScans}
               />
             )}
 
@@ -396,15 +393,6 @@ export default function App() {
         onSelectRole={handleRoleSelection}
       />
 
-      {/* Crop Doctor Modal (accessible from Farmer Home & My Farm) */}
-      <CropDoctorModal
-        isOpen={isCropDoctorOpen}
-        onClose={() => setIsCropDoctorOpen(false)}
-        language={language}
-        preselectedCrop={selectedCropForDoctor}
-        onSavedToObservations={loadAllData}
-      />
-
       {/* Fertilizer Guidance Modal (accessible from Farmer Home & My Farm) */}
       <FertilizerGuidanceModal
         isOpen={isFertilizerOpen}
@@ -412,6 +400,9 @@ export default function App() {
         language={language}
         preselectedCrop={selectedCropForFertilizer}
         onSavedToObservations={loadAllData}
+        profile={profile}
+        plantScans={plantScans}
+        soilScans={soilScans}
       />
 
       {/* Quick Language Selection Modal */}

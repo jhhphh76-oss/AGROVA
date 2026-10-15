@@ -29,6 +29,8 @@ const BUYER_PROFILES_FILE = path.join(DATA_DIR, 'buyer_profiles.json');
 const CROPS_FILE = path.join(DATA_DIR, 'crops.json');
 const OBSERVATIONS_FILE = path.join(DATA_DIR, 'observations.json');
 const SOIL_SCANS_FILE = path.join(DATA_DIR, 'soil_scans.json');
+const PLANT_SCANS_FILE = path.join(DATA_DIR, 'plant_scans.json');
+const ADVISOR_CONVERSATIONS_FILE = path.join(DATA_DIR, 'advisor_conversations.json');
 const MARKETPLACE_FILE = path.join(DATA_DIR, 'marketplace.json');
 
 function ensureDataDir(): void {
@@ -179,6 +181,20 @@ function getUserSoilScans(): Record<string, any[]> {
 }
 function saveUserSoilScans(data: Record<string, any[]>): void {
   writeJsonFile(SOIL_SCANS_FILE, data);
+}
+
+function getUserPlantScans(): Record<string, any[]> {
+  return readJsonFile<Record<string, any[]>>(PLANT_SCANS_FILE, {});
+}
+function saveUserPlantScans(data: Record<string, any[]>): void {
+  writeJsonFile(PLANT_SCANS_FILE, data);
+}
+
+function getUserAdvisorConversations(): Record<string, any[]> {
+  return readJsonFile<Record<string, any[]>>(ADVISOR_CONVERSATIONS_FILE, {});
+}
+function saveUserAdvisorConversations(data: Record<string, any[]>): void {
+  writeJsonFile(ADVISOR_CONVERSATIONS_FILE, data);
 }
 
 // ==================== AUTH MIDDLEWARE ====================
@@ -1051,6 +1067,97 @@ app.delete('/api/farmer/soil-scans/:id', requireAuth, (req, res) => {
   }
 });
 
+// Plant Scans CRUD
+app.get('/api/farmer/plant-scans', requireAuth, (req, res) => {
+  try {
+    const user = (req as any).user as StoredUser;
+    const allScans = getUserPlantScans();
+    res.json({ success: true, plantScans: allScans[user.id] || [] });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to load plant scans.' });
+  }
+});
+
+app.post('/api/farmer/plant-scans', requireAuth, (req, res) => {
+  try {
+    const user = (req as any).user as StoredUser;
+    const scanData = req.body;
+    const allScans = getUserPlantScans();
+    const userScans = allScans[user.id] || [];
+
+    const existingIdx = userScans.findIndex((s) => s.id === scanData.id);
+    const newRecord = {
+      ...scanData,
+      id: scanData.id || `plant-${Date.now()}`,
+      date: scanData.date || new Date().toISOString().split('T')[0],
+    };
+
+    if (existingIdx >= 0) {
+      userScans[existingIdx] = newRecord;
+    } else {
+      userScans.unshift(newRecord);
+    }
+
+    allScans[user.id] = userScans;
+    saveUserPlantScans(allScans);
+
+    res.json({ success: true, plantScan: newRecord });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to save plant scan.' });
+  }
+});
+
+app.delete('/api/farmer/plant-scans/:id', requireAuth, (req, res) => {
+  try {
+    const user = (req as any).user as StoredUser;
+    const scanId = req.params.id;
+    const allScans = getUserPlantScans();
+    if (allScans[user.id]) {
+      allScans[user.id] = allScans[user.id].filter((s) => s.id !== scanId);
+      saveUserPlantScans(allScans);
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to delete plant scan.' });
+  }
+});
+
+// Advisor Conversation History CRUD
+app.get('/api/farmer/advisor-history', requireAuth, (req, res) => {
+  try {
+    const user = (req as any).user as StoredUser;
+    const allConvs = getUserAdvisorConversations();
+    res.json({ success: true, messages: allConvs[user.id] || [] });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to load advisor history.' });
+  }
+});
+
+app.post('/api/farmer/advisor-history', requireAuth, (req, res) => {
+  try {
+    const user = (req as any).user as StoredUser;
+    const { messages } = req.body;
+    const allConvs = getUserAdvisorConversations();
+    allConvs[user.id] = Array.isArray(messages) ? messages : [];
+    saveUserAdvisorConversations(allConvs);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to save advisor history.' });
+  }
+});
+
+app.delete('/api/farmer/advisor-history', requireAuth, (req, res) => {
+  try {
+    const user = (req as any).user as StoredUser;
+    const allConvs = getUserAdvisorConversations();
+    delete allConvs[user.id];
+    saveUserAdvisorConversations(allConvs);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message || 'Failed to clear advisor history.' });
+  }
+});
+
 // GET Shared Marketplace Listings
 app.get('/api/marketplace/listings', (req, res) => {
   try {
@@ -1394,10 +1501,10 @@ Return response STRICTLY in valid JSON matching this schema:
   "soilTestNeededReminder": string
 }`;
 
-    // Retry loop for transient 503 model availability spikes
+    // Retry loop for transient model availability spikes
     let responseText = '';
     let lastError: any = null;
-    const modelsToTry = ['gemini-flash-latest', 'gemini-3.8-flash'];
+    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -1428,8 +1535,7 @@ Return response STRICTLY in valid JSON matching this schema:
           }
         } catch (err: any) {
           lastError = err;
-          // Short delay before retry
-          await new Promise((resolve) => setTimeout(resolve, 800));
+          await new Promise((resolve) => setTimeout(resolve, 600));
         }
       }
       if (responseText) break;
@@ -1439,7 +1545,6 @@ Return response STRICTLY in valid JSON matching this schema:
       throw lastError || new Error('No response generated by Gemini model.');
     }
 
-    // Parse JSON safely
     const cleanJson = responseText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
     const parsedData = JSON.parse(cleanJson);
 
@@ -1462,6 +1567,419 @@ Return response STRICTLY in valid JSON matching this schema:
     });
   }
 });
+
+// Plant Scan AI Analysis endpoint
+app.post('/api/analyze-plant', async (req, res) => {
+  const { imageBase64, mimeType, farmContext } = req.body;
+
+  if (!imageBase64) {
+    return res.status(400).json({
+      success: false,
+      error: 'No image data provided for plant analysis.',
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({
+      success: false,
+      aiUnavailable: true,
+      error: 'Gemini AI API key is not configured on the server. AI plant analysis is unavailable.',
+    });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const contextNotes = farmContext
+      ? `Farm context: Field: ${farmContext.fieldName || 'Plot 1'}, Crop: ${farmContext.cropName || 'Not specified'}, Location: ${farmContext.villageOrDistrict || 'Vijayapura'}, ${farmContext.state || 'Karnataka'}.`
+      : '';
+
+    const systemPrompt = `You are an expert agricultural botanist and plant pathologist assisting Indian farmers.
+Analyze the provided photograph of a crop or plant.
+${contextNotes}
+
+CRITICAL RULES:
+1. SUITABILITY CHECK:
+   - Determine if this image clearly depicts a plant, leaf, crop stem, flower, or agricultural produce.
+   - If the image is blurry, out of focus, too dark, microscopic without resolution, or does NOT depict a plant/crop (e.g. human face, room, machine, soil without plants), set "isSuitable": false.
+   - If "isSuitable" is false, give a polite, constructive "unsuitableReason" in plain English explaining why (e.g. "The photo is too blurry or distant to observe leaf venation or spot margins. Please hold the camera steady 15-20cm from the affected leaf in good daylight and retake the photo.") and keep other fields empty.
+
+2. VISIBLE OBSERVATIONS ONLY:
+   - Identify visible plant parts (leaves, stems, petioles, fruit, flowers).
+   - foliarCondition: Detailed visual state of leaves (e.g. "Interveinal yellowing (chlorosis)", "Brown circular necrotic spots with concentric rings", "Curling along leaf margins", "Wilting").
+   - pestOrPathogenSigns: Any visible webbing, insect frass, feeding holes, powdery mildew coating, or fungal spores. If none visible, state "No visible insects or fungal mycelium directly visible at this resolution".
+   - overallVigor: General appearance (e.g. "Moderately stressed", "Severe necrosis on lower canopy", "Active vegetative growth with localized leaf spots").
+
+3. POSSIBLE EXPLANATIONS & UNCERTAINTY:
+   - Suggest 1-3 plausible explanations (e.g., Early Blight / Alternaria, Nitrogen deficiency, Moisture stress, Thrips damage).
+   - Set likelihood to "Possible", "Uncertain", or "Requires In-Field Confirmation".
+   - CRITICAL: You must NEVER claim to provide a definitive diagnosis from a photo alone. Explicitly describe the uncertainty and explain that fungal, viral, bacterial, and abiotic factors can produce overlapping symptoms.
+
+4. FOLLOW-UP QUESTIONS:
+   - Provide 2-3 essential agronomic follow-up questions for the farmer (e.g., "What variety or hybrid was planted?", "Did symptoms start on older lower leaves or younger upper leaves?", "What was the date of last irrigation or heavy rainfall?").
+
+5. PRACTICAL NEXT STEPS & PREVENTION:
+   - Actionable field cultural practices (e.g., remove heavily infected fallen debris, avoid overhead sprinkler splash, inspect root collar for rot, check leaf undersides with a 10x lens).
+   - Prevention guidance (crop rotation, balanced fertilization, spacing for airflow).
+   - Do NOT prescribe dangerous, off-label, or specific toxic chemical pesticide dosages without warning. Advise consulting local Krishi Vigyan Kendra (KVK) or State Agricultural University extension officers.
+
+6. SCIENTIFIC CAUTION:
+   - Provide a clear, mandatory disclaimer: "Visual image analysis is an informational aid, NOT a definitive laboratory plant pathology diagnosis. Pathogen confirmation requires microscopic examination or tissue culturing. Verify all treatment measures with certified local agricultural experts before spraying."
+
+Return STRICTLY in JSON format matching this schema:
+{
+  "isSuitable": boolean,
+  "unsuitableReason": string | null,
+  "cropTypeIdentified": string,
+  "confidenceNote": string,
+  "visibleObservations": {
+    "plantPartsVisible": string[],
+    "foliarCondition": string,
+    "pestOrPathogenSigns": string,
+    "overallVigor": string
+  },
+  "possibleExplanations": [
+    {
+      "cause": string,
+      "likelihood": "Possible" | "Uncertain" | "Requires In-Field Confirmation",
+      "explanation": string,
+      "uncertaintyNote": string
+    }
+  ],
+  "followUpQuestions": string[],
+  "practicalNextSteps": string[],
+  "preventionGuidance": string[],
+  "scientificCaution": string
+}`;
+
+    let responseText = '';
+    let lastError: any = null;
+    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+
+    for (const modelName of modelsToTry) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const result = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                inlineData: {
+                  mimeType: mimeType || 'image/jpeg',
+                  data: imageBase64,
+                },
+              },
+              {
+                text: 'Analyze this plant photograph according to your system instructions and return the JSON report.',
+              },
+            ],
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: 'application/json',
+              temperature: 0.2,
+            },
+          });
+
+          if (result.text) {
+            responseText = result.text.trim();
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          await new Promise((resolve) => setTimeout(resolve, 600));
+        }
+      }
+      if (responseText) break;
+    }
+
+    if (!responseText) {
+      throw lastError || new Error('No response generated by Gemini model.');
+    }
+
+    const cleanJson = responseText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+    const parsedData = JSON.parse(cleanJson);
+
+    return res.json({
+      success: true,
+      analysis: {
+        ...parsedData,
+        analyzedAt: new Date().toISOString(),
+        modelUsed: 'Gemini Vision (Verified)',
+      },
+    });
+  } catch (error: any) {
+    console.error('Plant analysis error:', error);
+    return res.status(500).json({
+      success: false,
+      aiUnavailable: error.status === 503 || error.status === 429,
+      error:
+        error.message ||
+        'Unable to complete AI plant analysis at this time. Please check your internet connection or try again.',
+    });
+  }
+});
+
+// AI Advisor conversational agronomy endpoint
+app.post('/api/advisor-chat', async (req, res) => {
+  const { messages, sharedScanContext, weatherContext, locationContext, language } = req.body;
+
+  if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({
+      success: false,
+      error: 'Messages array is required.',
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({
+      success: false,
+      aiUnavailable: true,
+      error: 'Gemini AI API key is not configured on the server. AI Advisor is unavailable.',
+    });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    let contextSection = '';
+    if (locationContext) {
+      contextSection += `Farmer's Location: ${locationContext}.\n`;
+    }
+    if (weatherContext) {
+      contextSection += `Real-time Live Weather (Open-Meteo): ${weatherContext.temperature}°C, ${weatherContext.weatherDescription}, Humidity: ${weatherContext.humidity}%, Wind: ${weatherContext.windSpeed} km/h, Rain Chance: ${weatherContext.precipitationProbability}%. (Use this only when relevant to field operations like spraying, watering, or drying).\n`;
+    }
+    if (sharedScanContext) {
+      contextSection += `Farmer has shared a scan result (${sharedScanContext.type.toUpperCase()} SCAN):\n${sharedScanContext.summary}\n`;
+    }
+
+    const langInstruction = language && language !== 'en'
+      ? `Preferred Language: Respond primarily in the farmer's language (${language}) or bilingual with simple terms in brackets so the farmer feels completely comfortable.`
+      : `Respond in clear, friendly English appropriate for Indian agricultural contexts.`;
+
+    const systemPrompt = `You are AGROVA AI Advisor, an expert, trustworthy, and empathetic digital agricultural advisor for Indian farmers.
+
+${contextSection}
+${langInstruction}
+
+GUIDELINES:
+1. Answer farmers' agricultural questions in warm, conversational, and direct language.
+2. If a shared Plant Scan or Soil Scan result is attached, explain the visible findings, what might be happening, and practical recommendations in simple terms.
+3. Give practical advice on crop-care, irrigation scheduling, soil-health, and integrated pest management (IPM).
+4. Use the provided real weather and location data ONLY when relevant (e.g. advising against foliar spraying when wind > 15 km/h or rain probability > 40%).
+5. Ask short, focused follow-up questions if critical details are missing (e.g. crop growth stage, days since transplanting, soil type).
+6. Distinguish between direct visual observations, visual estimates, and laboratory-confirmed measurements. Remind farmers that photos cannot measure soil pH, NPK, or exact pathogen species.
+7. Avoid unsupported pesticide dosages or dangerous chemical instructions. Advise farmers to follow official CIBRC package labels, follow pre-harvest intervals (PHI), and consult local Krishi Vigyan Kendra (KVK) or extension officers for specific chemical sprays.
+8. Keep responses concise, organized with bullet points where helpful, and encouraging.`;
+
+    // Convert messages to Gemini format
+    const contents = messages.map((m: any) => ({
+      role: m.role === 'user' ? 'user' : 'model',
+      parts: [{ text: m.content }],
+    }));
+
+    let replyText = '';
+    let lastError: any = null;
+    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const result = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.4,
+          },
+        });
+        if (result.text) {
+          replyText = result.text.trim();
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!replyText) {
+      throw lastError || new Error('No response generated by AI Advisor.');
+    }
+
+    return res.json({
+      success: true,
+      reply: replyText,
+    });
+  } catch (err: any) {
+    console.error('Advisor chat error:', err);
+    return res.status(500).json({
+      success: false,
+      aiUnavailable: err.status === 503 || err.status === 429,
+      error: err.message || 'Unable to consult AI Advisor at this time. Please try again.',
+    });
+  }
+});
+
+// Fertilizer Guidance AI endpoint
+app.post('/api/fertilizer-guidance', async (req, res) => {
+  const {
+    cropName,
+    growthStage,
+    location,
+    soilType,
+    hasSoilTest,
+    soilTestResults, // e.g., { ph, nitrogen, phosphorus, potassium, organicCarbon, labName }
+    scanResultsSummary, // e.g. recent foliage condition or visual soil texture
+    organicManureApplied,
+    previousCropLegume,
+    farmingNotes,
+    language,
+  } = req.body;
+
+  if (!cropName) {
+    return res.status(400).json({
+      success: false,
+      error: 'Crop name is required for fertilizer guidance.',
+    });
+  }
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return res.status(503).json({
+      success: false,
+      aiUnavailable: true,
+      error: 'Gemini AI API key is not configured on the server. Fertilizer Guidance is unavailable.',
+    });
+  }
+
+  try {
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    let contextDetails = `Crop: ${cropName}\nGrowth Stage: ${growthStage || 'Vegetative'}\nLocation: ${location || 'Karnataka, India'}\nSoil Type: ${soilType || 'Unspecified'}\n`;
+    if (organicManureApplied) {
+      contextDetails += `Organic Manure / FYM Applied: Yes (provides slow-release micronutrients and biological activity).\n`;
+    }
+    if (previousCropLegume) {
+      contextDetails += `Previous Season Crop: Legume / Pulse (natural residual nitrogen fixation in soil).\n`;
+    }
+    if (scanResultsSummary) {
+      contextDetails += `Recent Scan Observations: ${scanResultsSummary}\n`;
+    }
+    if (hasSoilTest && soilTestResults) {
+      contextDetails += `CONFIRMED LABORATORY SOIL TEST RESULTS: pH ${soilTestResults.ph || 'N/A'}, Nitrogen (N): ${soilTestResults.nitrogen || 'N/A'}, Phosphorus (P): ${soilTestResults.phosphorus || 'N/A'}, Potassium (K): ${soilTestResults.potassium || 'N/A'}, Organic Carbon: ${soilTestResults.organicCarbon || 'N/A'}.\n`;
+    } else {
+      contextDetails += `SOIL TEST STATUS: No official laboratory soil test card provided by farmer.\n`;
+    }
+    if (farmingNotes) {
+      contextDetails += `Farmer Field Notes: ${farmingNotes}\n`;
+    }
+
+    const langInstruction = language && language !== 'en'
+      ? `Respond in the farmer's preferred language code: ${language}. Ensure agricultural concepts and terminology are natural, respectful, and easy to understand.`
+      : `Respond in clear, accessible English appropriate for Indian agricultural extension.`;
+
+    const systemPrompt = `You are AGROVA Fertilizer & Soil Fertility Advisor, a certified agronomic nutrition expert for Indian agriculture.
+Analyze the farmer's crop nutrition context:
+${contextDetails}
+
+CRITICAL AGRONOMIC RULES:
+1. SCIENTIFIC HONESTY ON MEASUREMENTS VS ESTIMATES:
+   - Clearly distinguish confirmed laboratory measurements from visual observations and model estimates.
+   - A photo alone CANNOT measure soil pH, NPK, or moisture. If no laboratory Soil Health Card is supplied, explicitly state that soil chemistry is unconfirmed.
+   - NEVER invent or hallucinate pH numbers, NPK values, or nutrient deficiencies.
+2. GROWTH-STAGE NUTRIENT DYNAMICS:
+   - Detail the primary macronutrients (Nitrogen, Phosphorus, Potassium) and essential secondary/micronutrients (e.g. Zinc, Boron, Sulphur) required specifically for ${cropName} at the "${growthStage}" stage.
+   - Explain basal application vs top-dressing split timing.
+3. CONSERVATIVE & RESPONSIBLE DOSAGE GUIDANCE:
+   - AVOID unsupported chemical fertilizer bag quantities or kilograms unless certified soil test data, acreage, irrigation type, and exact fertilizer grade (e.g., DAP 18:46:0, Urea 46%, MOP 60%) are explicitly provided.
+   - Warn against excessive nitrogen application which causes vegetative lodging and attracts fungal diseases.
+   - Advise farmers to verify recommended fertilizer rates with their local State Agricultural University Package of Practices (PoP) or Krishi Vigyan Kendra (KVK).
+4. FOLLOW-UP QUESTIONS:
+   - Provide 1-2 concise, practical follow-up questions to clarify missing parameters (e.g. irrigation source, target yield, or last fertilizer split date).
+5. LANGUAGE:
+   - ${langInstruction}
+
+Return STRICT JSON matching this schema:
+{
+  "summary": string,
+  "stageNutrientDynamics": [
+    {
+      "nutrient": string,
+      "role": string,
+      "managementAdvice": string
+    }
+  ],
+  "measuredVsEstimatedNotice": string,
+  "actionableNextSteps": string[],
+  "followUpQuestions": string[],
+  "extensionDisclaimer": string
+}`;
+
+    let responseText = '';
+    let lastError: any = null;
+    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const result = await ai.models.generateContent({
+          model: modelName,
+          contents: [{ text: `Provide fertilizer guidance for ${cropName} at ${growthStage} stage.` }],
+          config: {
+            systemInstruction: systemPrompt,
+            responseMimeType: 'application/json',
+            temperature: 0.2,
+          },
+        });
+        if (result.text) {
+          responseText = result.text.trim();
+          break;
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
+    }
+
+    if (!responseText) {
+      throw lastError || new Error('No response generated by Fertilizer Guidance AI.');
+    }
+
+    const cleanJson = responseText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
+    const parsedData = JSON.parse(cleanJson);
+
+    return res.json({
+      success: true,
+      guidance: parsedData,
+    });
+  } catch (err: any) {
+    console.error('Fertilizer guidance error:', err);
+    return res.status(500).json({
+      success: false,
+      aiUnavailable: err.status === 503 || err.status === 429,
+      error: err.message || 'Unable to generate fertilizer guidance at this time. Please try again.',
+    });
+  }
+});
+
 
 // Setup Vite middleware in dev or static server in prod
 async function startServer() {

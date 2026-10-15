@@ -114,6 +114,9 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
       preferredLanguage: language,
     };
     storageService.saveProfile(updated);
+    if (updated.villageOrDistrict && typeof localStorage !== 'undefined') {
+      localStorage.setItem('agrova_selected_weather_city', updated.villageOrDistrict);
+    }
     onUpdateProfile(updated);
     if (authService.isAuthenticated()) {
       await authService.updateProfile({

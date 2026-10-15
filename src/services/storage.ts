@@ -7,6 +7,8 @@ import {
   FarmObservation,
   MarketListing,
   SoilScanRecord,
+  PlantScanRecord,
+  AdvisorMessage,
   CropDoctorInquiry
 } from '../types';
 import { authService } from './authService';
@@ -35,6 +37,8 @@ const STORAGE_KEYS = {
   CROPS: 'agrova_crops_v1',
   OBSERVATIONS: 'agrova_observations_v1',
   SOIL_SCANS: 'agrova_soil_scans_v1',
+  PLANT_SCANS: 'agrova_plant_scans_v1',
+  ADVISOR_MESSAGES: 'agrova_advisor_messages_v1',
   CROP_INQUIRIES: 'agrova_crop_inquiries_v1',
   MARKET_LISTINGS: 'agrova_market_listings_v1',
   ENQUIRIES: 'agrova_enquiries_v1',
@@ -182,6 +186,47 @@ const DEFAULT_SOIL_SCANS: SoilScanRecord[] = [
   },
 ];
 
+export const DEFAULT_PLANT_SCANS: PlantScanRecord[] = [
+  {
+    id: 'plant-seed-1',
+    date: '2026-10-12',
+    cropName: 'Wheat',
+    fieldName: 'Main Plot North',
+    photoUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    observations: 'Healthy vegetative wheat foliage, vibrant emerald green coloration, no signs of rust or fungal spots.',
+    aiAnalysis: {
+      isSuitable: true,
+      cropTypeIdentified: 'Wheat (Triticum aestivum)',
+      confidenceNote: 'High confidence based on leaf blade venation and tillering stage',
+      visibleObservations: {
+        foliarCondition: 'Healthy green leaf blade, robust cellular turgor, no chlorosis or necrosis',
+        overallVigor: 'Excellent',
+        pestOrPathogenSigns: 'None observed',
+        canopyUniformity: 'Uniform dense canopy',
+      },
+      possibleExplanations: [
+        {
+          cause: 'Healthy crop vegetative vigor',
+          likelihood: 'High',
+          reasoning: 'Uniform leaf color and lack of chlorosis indicate balanced nitrogen and moisture.',
+        },
+      ],
+      suggestedNextSteps: [
+        'Maintain scheduled irrigation interval',
+        'Inspect lower crown leaves in 7 days for early aphid presence',
+      ],
+      agronomicGuidance: 'Current foliar vigor is optimal (100% score, Grade A+). Follow local university Package of Practices for timely top-dressing.',
+    },
+    isAiAnalyzed: true,
+    farmContext: {
+      cropName: 'Wheat',
+      fieldName: 'Main Plot North',
+      villageOrDistrict: 'Vijayapura',
+      state: 'Karnataka',
+    },
+  },
+];
+
 const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
   {
     id: 'mkt-1',
@@ -201,6 +246,12 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
     isDemonstration: true,
     datePosted: '2026-10-10',
     description: 'Sun-dried golden grain, 11.5% moisture, machine cleaned, 50kg new gunny bags.',
+    cropHealthAssessment: {
+      score: 96,
+      grade: 'A+',
+      evaluatedAt: '2026-10-10',
+      notes: 'AGROVA scan assessment: 96% (Grade A+) from 3 verified leaf scans. Robust canopy vigor, zero foliar necrosis.',
+    },
   },
   {
     id: 'mkt-2',
@@ -220,6 +271,12 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
     isDemonstration: true,
     datePosted: '2026-10-09',
     description: 'Direct field harvest, tight skin, storage-ready for 3-4 months, sorted size 45mm-60mm.',
+    cropHealthAssessment: {
+      score: 88,
+      grade: 'A',
+      evaluatedAt: '2026-10-09',
+      notes: 'AGROVA scan assessment: 88% (Grade A) from 2 verified leaf scans. Mild thrip pressure noted, foliage clear.',
+    },
   },
   {
     id: 'mkt-3',
@@ -239,6 +296,12 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
     isDemonstration: true,
     datePosted: '2026-10-08',
     description: 'Certified organic, aged 1 year, extra-long grain with authentic aroma. Lab tested pesticide-free.',
+    cropHealthAssessment: {
+      score: 82,
+      grade: 'B',
+      evaluatedAt: '2026-10-08',
+      notes: 'AGROVA scan assessment: 82% (Grade B) from 2 verified leaf scans. Moderate leaf yellowing during ripening.',
+    },
   },
   {
     id: 'mkt-4',
@@ -258,6 +321,7 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
     isDemonstration: true,
     datePosted: '2026-10-07',
     description: 'High protein desi chana, dried to 9% moisture, zero chemical fumigation.',
+    cropHealthAssessment: null,
   },
   {
     id: 'mkt-5',
@@ -277,6 +341,12 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
     isDemonstration: true,
     datePosted: '2026-10-06',
     description: 'High oil yield soybean, 18-20% oil content, suitable for solvent extraction or seed.',
+    cropHealthAssessment: {
+      score: 95,
+      grade: 'A+',
+      evaluatedAt: '2026-10-06',
+      notes: 'AGROVA scan assessment: 95% (Grade A+) from 4 verified leaf scans. Vigorous canopy, zero defoliation.',
+    },
   },
 ];
 
@@ -290,10 +360,15 @@ export const storageService = {
       localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(DEFAULT_CROPS));
       localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(DEFAULT_OBSERVATIONS));
       localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(DEFAULT_SOIL_SCANS));
+      localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(DEFAULT_PLANT_SCANS));
       localStorage.setItem(STORAGE_KEYS.MARKET_LISTINGS, JSON.stringify(DEFAULT_MARKET_LISTINGS));
       localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.CROP_INQUIRIES, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
+    } else {
+      if (!localStorage.getItem(STORAGE_KEYS.PLANT_SCANS)) {
+        localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(DEFAULT_PLANT_SCANS));
+      }
     }
   },
 
@@ -384,7 +459,7 @@ export const storageService = {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.crops) && data.crops.length > 0) {
+          if (data.success && Array.isArray(data.crops)) {
             localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(data.crops));
             return data.crops;
           }
@@ -417,16 +492,22 @@ export const storageService = {
     }
   },
 
-  deleteCrop(id: string): void {
-    const crops = this.getCrops().filter((c) => c.id !== id);
-    localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(crops));
+  async deleteCrop(id: string): Promise<boolean> {
+    try {
+      const crops = this.getCrops().filter((c) => c.id !== id);
+      localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(crops));
 
-    const token = authService.getToken();
-    if (token) {
-      fetch(`/api/farmer/crops/${id}`, {
-        method: 'DELETE',
-        headers: getRequestHeaders(),
-      }).catch((e) => console.warn('Background crop delete failed:', e));
+      const token = authService.getToken();
+      if (token) {
+        await fetch(`/api/farmer/crops/${id}`, {
+          method: 'DELETE',
+          headers: getRequestHeaders(),
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to delete crop:', err);
+      return false;
     }
   },
 
@@ -448,7 +529,7 @@ export const storageService = {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.observations) && data.observations.length > 0) {
+          if (data.success && Array.isArray(data.observations)) {
             localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(data.observations));
             return data.observations;
           }
@@ -480,16 +561,22 @@ export const storageService = {
     }
   },
 
-  deleteObservation(id: string): void {
-    const obs = this.getObservations().filter((o) => o.id !== id);
-    localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(obs));
+  async deleteObservation(id: string): Promise<boolean> {
+    try {
+      const obs = this.getObservations().filter((o) => o.id !== id);
+      localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(obs));
 
-    const token = authService.getToken();
-    if (token) {
-      fetch(`/api/farmer/observations/${id}`, {
-        method: 'DELETE',
-        headers: getRequestHeaders(),
-      }).catch((e) => console.warn('Background observation delete failed:', e));
+      const token = authService.getToken();
+      if (token) {
+        await fetch(`/api/farmer/observations/${id}`, {
+          method: 'DELETE',
+          headers: getRequestHeaders(),
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to delete observation:', err);
+      return false;
     }
   },
 
@@ -511,7 +598,7 @@ export const storageService = {
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.success && Array.isArray(data.soilScans) && data.soilScans.length > 0) {
+          if (data.success && Array.isArray(data.soilScans)) {
             localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(data.soilScans));
             return data.soilScans;
           }
@@ -567,16 +654,150 @@ export const storageService = {
     }
   },
 
-  deleteSoilScan(id: string): void {
-    const scans = this.getSoilScans().filter((s) => s.id !== id);
-    localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(scans));
+  async deleteSoilScan(id: string): Promise<boolean> {
+    try {
+      const scans = this.getSoilScans().filter((s) => s.id !== id);
+      localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(scans));
 
+      const token = authService.getToken();
+      if (token) {
+        await fetch(`/api/farmer/soil-scans/${id}`, {
+          method: 'DELETE',
+          headers: getRequestHeaders(),
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to delete soil scan:', err);
+      return false;
+    }
+  },
+
+  getPlantScans(): PlantScanRecord[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.PLANT_SCANS);
+      return data ? JSON.parse(data) : DEFAULT_PLANT_SCANS;
+    } catch {
+      return DEFAULT_PLANT_SCANS;
+    }
+  },
+
+  async fetchPlantScans(): Promise<PlantScanRecord[]> {
     const token = authService.getToken();
     if (token) {
-      fetch(`/api/farmer/soil-scans/${id}`, {
+      try {
+        const res = await fetch('/api/farmer/plant-scans', {
+          headers: getRequestHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.plantScans)) {
+            localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(data.plantScans));
+            return data.plantScans;
+          }
+        }
+      } catch (e) {
+        console.warn('Backend plant scans sync failed, using local cache:', e);
+      }
+    }
+    return this.getPlantScans();
+  },
+
+  savePlantScan(scan: PlantScanRecord): boolean {
+    try {
+      const scans = this.getPlantScans();
+      const existingIdx = scans.findIndex((s) => s.id === scan.id);
+      if (existingIdx >= 0) {
+        scans[existingIdx] = scan;
+      } else {
+        scans.unshift(scan);
+      }
+      localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(scans));
+
+      const token = authService.getToken();
+      if (token) {
+        fetch('/api/farmer/plant-scans', {
+          method: 'POST',
+          headers: getRequestHeaders(),
+          body: JSON.stringify(scan),
+        }).catch((e) => console.warn('Background plant scan save failed:', e));
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to save plant scan to storage:', err);
+      return false;
+    }
+  },
+
+  async deletePlantScan(id: string): Promise<boolean> {
+    try {
+      const scans = this.getPlantScans().filter((s) => s.id !== id);
+      localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(scans));
+
+      const token = authService.getToken();
+      if (token) {
+        await fetch(`/api/farmer/plant-scans/${id}`, {
+          method: 'DELETE',
+          headers: getRequestHeaders(),
+        });
+      }
+      return true;
+    } catch (err) {
+      console.error('Failed to delete plant scan:', err);
+      return false;
+    }
+  },
+
+  getAdvisorMessages(): AdvisorMessage[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.ADVISOR_MESSAGES);
+      return data ? JSON.parse(data) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async fetchAdvisorMessages(): Promise<AdvisorMessage[]> {
+    const token = authService.getToken();
+    if (token) {
+      try {
+        const res = await fetch('/api/farmer/advisor-history', {
+          headers: getRequestHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.messages)) {
+            localStorage.setItem(STORAGE_KEYS.ADVISOR_MESSAGES, JSON.stringify(data.messages));
+            return data.messages;
+          }
+        }
+      } catch (e) {
+        console.warn('Backend advisor history sync failed, using local cache:', e);
+      }
+    }
+    return this.getAdvisorMessages();
+  },
+
+  saveAdvisorMessages(messages: AdvisorMessage[]): void {
+    localStorage.setItem(STORAGE_KEYS.ADVISOR_MESSAGES, JSON.stringify(messages));
+    const token = authService.getToken();
+    if (token) {
+      fetch('/api/farmer/advisor-history', {
+        method: 'POST',
+        headers: getRequestHeaders(),
+        body: JSON.stringify({ messages }),
+      }).catch((e) => console.warn('Background advisor history save failed:', e));
+    }
+  },
+
+  clearAdvisorMessages(): void {
+    localStorage.removeItem(STORAGE_KEYS.ADVISOR_MESSAGES);
+    const token = authService.getToken();
+    if (token) {
+      fetch('/api/farmer/advisor-history', {
         method: 'DELETE',
         headers: getRequestHeaders(),
-      }).catch((e) => console.warn('Background soil scan delete failed:', e));
+      }).catch((e) => console.warn('Background advisor history clear failed:', e));
     }
   },
 
