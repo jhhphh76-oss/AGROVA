@@ -1,4 +1,3 @@
-import React, { useState } from 'react';
 import { 
   Sprout, 
   Store, 
@@ -6,6 +5,7 @@ import {
   Lock, 
   Mail, 
   User, 
+  Phone,
   MapPin, 
   Eye, 
   EyeOff, 
@@ -22,6 +22,7 @@ import { UserRole, SupportedLanguage, AuthUser, FarmerProfile, BuyerProfile } fr
 import { TRANSLATIONS, LANGUAGES } from '../constants/translations';
 import { authService } from '../services/authService';
 import { AgrovaLogo } from './AgrovaLogo';
+import { validatePhoneNumber } from '../utils/phoneValidation';
 
 interface AuthScreenProps {
   language: SupportedLanguage;
@@ -45,6 +46,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [role, setRole] = useState<UserRole>('farmer');
   const [name, setName] = useState<string>('');
   const [email, setEmail] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [confirmPassword, setConfirmPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -70,7 +72,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const handleFillTestFarmer = () => {
     setRole('farmer');
     setName('Ananya Patil');
-    setEmail('agrova.farmer.test@example.com');
+    setEmail('agriconnect.farmer.test@example.com');
+    setPhone('+91 98450 12345');
     setDistrict('Vijayapura');
     setFarmArea('5');
     setErrorMessage(null);
@@ -79,7 +82,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const handleFillTestBuyer = () => {
     setRole('buyer');
     setName('Rajesh Kumar');
-    setEmail('agrova.buyer.test@example.com');
+    setEmail('agriconnect.buyer.test@example.com');
+    setPhone('+91 94481 67890');
     setDistrict('Vijayapura APMC');
     setBusinessName('Karnataka Agri Procurement Ltd');
     setBusinessType('Wholesale Trader');
@@ -99,6 +103,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       setErrorMessage(t.errorInvalidEmail);
       return;
     }
+
+    // Requirement 3: Mandatory Phone Number Validation
+    if (!phone.trim()) {
+      setErrorMessage('Mobile phone number is mandatory. Please enter your 10-digit Indian mobile number.');
+      return;
+    }
+    const phoneResult = validatePhoneNumber(phone);
+    if (!phoneResult.valid || !phoneResult.normalized) {
+      setErrorMessage(phoneResult.error || 'Please enter a valid 10-digit Indian mobile number (e.g. 9845012345 or +91 98450 12345).');
+      return;
+    }
+
     if (password.length < 6) {
       setErrorMessage(t.errorPassLength);
       return;
@@ -112,6 +128,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     const result = await authService.register({
       name: name.trim(),
       email: email.trim(),
+      phone: phoneResult.normalized,
       password,
       role,
       farmDistrict: district.trim(),
@@ -426,6 +443,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   </div>
                 </div>
 
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Mobile Phone Number *
+                    </label>
+                    <span className="text-[10px] text-emerald-700 font-semibold">10-Digit Indian Mobile</span>
+                  </div>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="e.g. 98450 12345 or +91 98450 12345"
+                      className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 transition"
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Mandatory for trade coordination, purchase enquiries, and produce procurement.
+                  </p>
+                </div>
+
                 {/* Role Specific Additional Details */}
                 {role === 'farmer' ? (
                   <div className="grid grid-cols-2 gap-2.5">
@@ -553,7 +593,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   {t.signInTab}
                 </h1>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Sign in with your verified AGROVA login email and password.
+                  Sign in with your verified AgriConnect login email and password.
                 </p>
               </div>
 
@@ -565,17 +605,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <div className="flex flex-wrap gap-1.5">
                   <button
                     type="button"
-                    onClick={() => setEmail('agrova.farmer.test@example.com')}
+                    onClick={() => setEmail('agriconnect.farmer.test@example.com')}
                     className="text-[11px] font-bold px-2 py-1 bg-white hover:bg-emerald-100 text-emerald-800 rounded-lg border border-emerald-300 transition"
                   >
-                    Farmer: agrova.farmer.test@example.com
+                    Farmer: agriconnect.farmer.test@example.com
                   </button>
                   <button
                     type="button"
-                    onClick={() => setEmail('agrova.buyer.test@example.com')}
+                    onClick={() => setEmail('agriconnect.buyer.test@example.com')}
                     className="text-[11px] font-bold px-2 py-1 bg-white hover:bg-emerald-100 text-[#144225] rounded-lg border border-emerald-300 transition"
                   >
-                    Buyer: agrova.buyer.test@example.com
+                    Buyer: agriconnect.buyer.test@example.com
                   </button>
                 </div>
               </div>
@@ -684,7 +724,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="agrova.farmer.test@example.com"
+                        placeholder="agriconnect.farmer.test@example.com"
                         className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600 transition"
                       />
                     </div>

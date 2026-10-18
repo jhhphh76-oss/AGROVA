@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sprout } from 'lucide-react';
 
-interface AgrovaLogoProps {
+interface LogoProps {
   variant?: 'full' | 'horizontal' | 'icon' | 'badge';
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
@@ -9,18 +9,18 @@ interface AgrovaLogoProps {
   subtitleText?: string;
 }
 
-export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
+export const AgriConnectLogo: React.FC<LogoProps> = ({
   variant = 'horizontal',
   size = 'md',
   className = '',
   showSubtitle = true,
   subtitleText = 'Smart Farming. Fair Earnings.',
 }) => {
-  // Track if the authentic image asset exists and loads
+  // Track if user-provided authentic image logo exists and loads successfully
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
   const [imageFailed, setImageFailed] = useState<boolean>(false);
 
-  // Candidate asset paths where user's original logo may be placed
+  // User-provided authentic logo image path candidates (NO AI-generated replacements)
   const logoSrc = '/IMG-20261012-WA0003.jpg';
 
   // Dimension scaling
@@ -51,14 +51,14 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
     },
   }[size];
 
-  // If the authentic image asset is found and successfully loaded:
+  // If user's provided authentic image asset is present and loaded:
   if (imageLoaded && !imageFailed) {
     if (variant === 'icon') {
       return (
         <div className={`inline-flex items-center ${className}`}>
           <img
             src={logoSrc}
-            alt="AGROVA"
+            alt="AgriConnect"
             className={`${sizeConfig.imgHeight} w-auto object-contain`}
           />
         </div>
@@ -70,7 +70,7 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
         <div className={`flex flex-col items-center text-center gap-1.5 ${className}`}>
           <img
             src={logoSrc}
-            alt="AGROVA"
+            alt="AgriConnect"
             className={`${sizeConfig.imgHeight} w-auto object-contain max-w-full`}
           />
           {showSubtitle && (
@@ -87,7 +87,7 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
       <div className={`inline-flex items-center gap-2 ${className}`}>
         <img
           src={logoSrc}
-          alt="AGROVA"
+          alt="AgriConnect"
           className={`${sizeConfig.imgHeight} w-auto object-contain shrink-0`}
         />
         {showSubtitle && (
@@ -99,11 +99,11 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
     );
   }
 
-  // Hidden image probe to test if original asset is placed in the project
+  // Hidden image probe to detect when user's provided logo asset is placed in the project
   const ImageProbe = !imageFailed && (
     <img
       src={logoSrc}
-      alt="AGROVA Logo Asset Probe"
+      alt="AgriConnect Logo Probe"
       className="hidden"
       onLoad={() => setImageLoaded(true)}
       onError={() => setImageFailed(true)}
@@ -128,7 +128,7 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
         {ImageProbe}
         <Sprout className="w-4 h-4 text-emerald-700" />
         <span className="font-extrabold text-[#0d4a2b] text-sm tracking-wide font-display">
-          AGROVA
+          AgriConnect
         </span>
       </div>
     );
@@ -142,8 +142,8 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#14492a] to-[#0a2e1a] flex items-center justify-center text-white shadow-2xs border border-[#1b5b35]">
             <Sprout className="w-6 h-6 text-emerald-400" />
           </div>
-          <span className={`font-black ${sizeConfig.textSize} tracking-wider text-[#0d4a2b] font-display uppercase`}>
-            AGROVA
+          <span className={`font-black ${sizeConfig.textSize} tracking-tight text-[#0d4a2b] font-display`}>
+            Agri<span className="text-emerald-600">Connect</span>
           </span>
         </div>
         {showSubtitle && (
@@ -155,7 +155,7 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
     );
   }
 
-  // Default: Horizontal brand lockup (Clean, no text overlaps, mobile-safe)
+  // Default: Horizontal brand lockup (Clean, responsive, mobile-safe)
   return (
     <div className={`inline-flex items-center gap-2.5 ${className}`}>
       {ImageProbe}
@@ -164,8 +164,8 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
       </div>
 
       <div className="flex flex-col justify-center min-w-0">
-        <span className={`font-black ${sizeConfig.textSize} tracking-wider text-[#0d4a2b] leading-tight font-display uppercase truncate`}>
-          AGROVA
+        <span className={`font-black ${sizeConfig.textSize} tracking-tight text-[#0d4a2b] leading-tight font-display truncate`}>
+          Agri<span className="text-emerald-600">Connect</span>
         </span>
         {showSubtitle && (
           <span className={`hidden sm:block ${sizeConfig.subSize} font-semibold text-[#15803d] tracking-wider uppercase leading-none truncate`}>
@@ -176,3 +176,7 @@ export const AgrovaLogo: React.FC<AgrovaLogoProps> = ({
     </div>
   );
 };
+
+// Backwards-compatible export alias for components importing AgrovaLogo
+export const AgrovaLogo = AgriConnectLogo;
+export default AgriConnectLogo;

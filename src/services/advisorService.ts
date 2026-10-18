@@ -37,21 +37,31 @@ export const advisorService = {
       });
 
       clearTimeout(timeoutId);
-      const data = await response.json();
+      let data: any = null;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch (e) {
+          console.warn('Failed to parse advisor response as JSON:', e);
+        }
+      }
 
       if (!response.ok) {
+        const errMessage = data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || `Server returned error (${response.status})`;
         return {
           success: false,
-          error: data.error || `Server returned error (${response.status})`,
-          aiUnavailable: Boolean(data.aiUnavailable),
+          error: errMessage,
+          aiUnavailable: Boolean(data?.aiUnavailable || response.status === 503),
         };
       }
 
-      if (!data.success || !data.reply) {
+      if (!data?.success || !data?.reply) {
+        const errMessage = data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || 'No response returned by AI advisor.';
         return {
           success: false,
-          error: data.error || 'No response returned by AI advisor.',
-          aiUnavailable: Boolean(data.aiUnavailable),
+          error: errMessage,
+          aiUnavailable: Boolean(data?.aiUnavailable),
         };
       }
 

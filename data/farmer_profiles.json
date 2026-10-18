@@ -12,5 +12,33 @@
     "preferredTempUnit": "celsius",
     "totalFarmArea": 5,
     "primarySoilType": "Black Soil (Regur)"
+  },
+  "usr-1792062144088-223d9985": {
+    "userId": "usr-1792062144088-223d9985",
+    "name": "Anil Rao",
+    "farmName": "Anil Rao's Farm",
+    "villageOrDistrict": "Vijayapura",
+    "state": "Karnataka",
+    "contactNumber": "",
+    "preferredLanguage": "en",
+    "preferredAreaUnit": "acres",
+    "preferredWeightUnit": "quintal",
+    "preferredTempUnit": "celsius",
+    "totalFarmArea": 5,
+    "primarySoilType": "Black Soil (Regur)"
+  },
+  "usr-1792137356665-ba9bbdfb": {
+    "userId": "usr-1792137356665-ba9bbdfb",
+    "name": "Ramesh Patel",
+    "farmName": "Ramesh Patel's Farm",
+    "villageOrDistrict": "Vijayapura",
+    "state": "Karnataka",
+    "contactNumber": "",
+    "preferredLanguage": "en",
+    "preferredAreaUnit": "acres",
+    "preferredWeightUnit": "quintal",
+    "preferredTempUnit": "celsius",
+    "totalFarmArea": 5,
+    "primarySoilType": "Black Soil (Regur)"
   }
 }

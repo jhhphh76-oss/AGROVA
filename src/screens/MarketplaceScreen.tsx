@@ -158,7 +158,7 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
             score: assessment.score,
             grade: assessment.grade,
             evaluatedAt: assessment.latestScanDate,
-            notes: `AGROVA scan assessment: ${assessment.score}% (Grade ${assessment.grade}) from ${assessment.validScansCount} verified leaf scan(s).`,
+            notes: `AgriConnect scan assessment: ${assessment.score}% (Grade ${assessment.grade}) from ${assessment.validScansCount} verified leaf scan(s).`,
           }
         : null,
     };
@@ -409,7 +409,7 @@ export const MarketplaceScreen: React.FC<MarketplaceScreenProps> = ({
                         </div>
                       </div>
 
-                      {/* AGROVA Scan-Based Crop Health Assessment */}
+                      {/* AgriConnect Scan-Based Crop Health Assessment */}
                       <div className="flex items-center justify-between text-[11px] px-2.5 py-1.5 rounded-lg bg-[#f4f8f2] border border-[#dce8d5]">
                         <span className="flex items-center gap-1 font-semibold text-[#144225]">
                           <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />

@@ -268,7 +268,7 @@ export const BuyerHomeScreen: React.FC<BuyerHomeScreenProps> = ({
           <span>Direct Farmer Trade Guarantee & Integrity</span>
         </div>
         <p className="leading-relaxed text-[11px] text-[#416149]">
-          AGROVA facilitates direct coordination between agricultural buyers and cultivators without middleman commissions. Sending an enquiry provides your business contact information directly to the grower so you can confirm lot grading, arrange sampling, and agree on mandi settlement terms.
+          AgriConnect facilitates direct coordination between agricultural buyers and cultivators without middleman commissions. Sending an enquiry provides your business contact information directly to the grower so you can confirm lot grading, arrange sampling, and agree on mandi settlement terms.
         </p>
       </section>
     </div>

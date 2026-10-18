@@ -19,6 +19,76 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ limit: '15mb', extended: true }));
 
+// Ensure malformed JSON requests to API return consistent JSON errors rather than Express HTML
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && 'status' in err && (err as any).status === 400 && 'body' in err) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'INVALID_JSON',
+        message: 'Malformed JSON payload in request body. Please check the submitted information.',
+      },
+    });
+  }
+  next(err);
+});
+
+// Helper for consistent JSON API error responses with secure logging
+function sendJsonError(
+  res: express.Response,
+  status: number,
+  code: string,
+  message: string,
+  diagnosticDetails?: any
+) {
+  if (diagnosticDetails) {
+    console.error(`[API Error ${status} - ${code}]: ${message}`, diagnosticDetails);
+  }
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  return res.status(status).json({
+    success: false,
+    error: message,
+    code,
+    errorDetails: {
+      code,
+      message,
+    },
+  });
+}
+
+// Indian mobile phone number validator and normalizer
+function validateIndianPhoneNumber(phone: unknown): { valid: boolean; normalized?: string; error?: string } {
+  if (phone === null || phone === undefined) {
+    return {
+      valid: false,
+      error: 'Phone number is mandatory. Please enter your mobile number.',
+    };
+  }
+  const str = String(phone).trim();
+  if (!str) {
+    return {
+      valid: false,
+      error: 'Phone number cannot be empty. Please enter your mobile number.',
+    };
+  }
+  const stripped = str.replace(/[\s\-\(\)\.]/g, '');
+  const indianMobileRegex = /^(?:\+?91|0)?([6-9]\d{9})$/;
+  const match = stripped.match(indianMobileRegex);
+  if (!match) {
+    return {
+      valid: false,
+      error: 'Please enter a valid 10-digit Indian mobile number (e.g. 9845012345 or +91 9845012345).',
+    };
+  }
+  const tenDigits = match[1];
+  const normalized = `+91 ${tenDigits.slice(0, 5)} ${tenDigits.slice(5)}`;
+  return {
+    valid: true,
+    normalized,
+  };
+}
+
 // Persistent Data Storage Directory
 const DATA_DIR = path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
@@ -88,6 +158,7 @@ interface StoredUser {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: 'farmer' | 'buyer';
   passwordHash: string;
   salt: string;
@@ -233,10 +304,54 @@ app.use(authenticateUser);
 
 function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (!(req as any).user) {
-    return res.status(401).json({
-      success: false,
-      error: 'Authentication required. Please sign in to your AGROVA account.',
-    });
+    return sendJsonError(
+      res,
+      401,
+      'UNAUTHORIZED',
+      'Authentication required. Please sign in to your AgriConnect account.'
+    );
+  }
+  next();
+}
+
+function requireFarmer(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const user = (req as any).user as StoredUser | null;
+  if (!user) {
+    return sendJsonError(
+      res,
+      401,
+      'UNAUTHORIZED',
+      'Authentication required. Please sign in to your AgriConnect account.'
+    );
+  }
+  if (user.role !== 'farmer') {
+    return sendJsonError(
+      res,
+      403,
+      'FORBIDDEN',
+      'Permission denied: This action is restricted to registered farmers.'
+    );
+  }
+  next();
+}
+
+function requireBuyer(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const user = (req as any).user as StoredUser | null;
+  if (!user) {
+    return sendJsonError(
+      res,
+      401,
+      'UNAUTHORIZED',
+      'Authentication required. Please sign in to your AgriConnect account.'
+    );
+  }
+  if (user.role !== 'buyer') {
+    return sendJsonError(
+      res,
+      403,
+      'FORBIDDEN',
+      'Permission denied: This action is restricted to registered buyers.'
+    );
   }
   next();
 }
@@ -418,7 +533,7 @@ function getProfileForUser(user: StoredUser) {
         farmName: `${user.name}'s Farm`,
         villageOrDistrict: 'Vijayapura',
         state: 'Karnataka',
-        contactNumber: '',
+        contactNumber: user.phone || '',
         preferredLanguage: user.preferredLanguage || 'en',
         preferredAreaUnit: 'acres',
         preferredWeightUnit: 'quintal',
@@ -426,6 +541,9 @@ function getProfileForUser(user: StoredUser) {
         totalFarmArea: 5.0,
         primarySoilType: 'Black Soil (Regur)',
       };
+      saveFarmerProfiles(profiles);
+    } else if (user.phone && !profiles[user.id].contactNumber) {
+      profiles[user.id].contactNumber = user.phone;
       saveFarmerProfiles(profiles);
     }
     return profiles[user.id];
@@ -440,11 +558,14 @@ function getProfileForUser(user: StoredUser) {
         businessType: 'Wholesale Trader',
         location: 'Vijayapura APMC',
         state: 'Karnataka',
-        contactNumber: '',
+        contactNumber: user.phone || '',
         email: user.email,
         preferredLanguage: user.preferredLanguage || 'en',
         preferredCategories: ['Grains & Cereals', 'Pulses', 'Vegetables', 'Oilseeds'],
       };
+      saveBuyerProfiles(profiles);
+    } else if (user.phone && !profiles[user.id].contactNumber) {
+      profiles[user.id].contactNumber = user.phone;
       saveBuyerProfiles(profiles);
     }
     return profiles[user.id];
@@ -454,6 +575,16 @@ function getProfileForUser(user: StoredUser) {
 // POST Register
 app.post('/api/auth/register', (req, res) => {
   try {
+    // 1. Verify request body presence and type
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_REQUEST',
+        'Request body must be a valid JSON object. Please check the submitted information.'
+      );
+    }
+
     const {
       name,
       email,
@@ -467,29 +598,69 @@ app.post('/api/auth/register', (req, res) => {
       language,
     } = req.body;
 
+    // 2. Validate Required Fields
     if (!name || typeof name !== 'string' || !name.trim()) {
-      return res.status(400).json({ success: false, error: 'Full display name is required.' });
+      return sendJsonError(
+        res,
+        400,
+        'MISSING_REQUIRED_FIELD',
+        'Full display name is required.'
+      );
     }
 
     if (!email || typeof email !== 'string' || !email.includes('@')) {
-      return res.status(400).json({ success: false, error: 'A valid email address is required.' });
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_EMAIL',
+        'A valid email address is required.'
+      );
     }
 
     const cleanEmail = email.trim().toLowerCase();
 
+    // 3. Mandatory Phone Number Validation (India mobile)
+    const phoneValidation = validateIndianPhoneNumber(phone);
+    if (!phoneValidation.valid || !phoneValidation.normalized) {
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_PHONE_NUMBER',
+        phoneValidation.error || 'A valid 10-digit Indian mobile number is mandatory for registration.'
+      );
+    }
+    const cleanPhone = phoneValidation.normalized;
+
     if (!password || typeof password !== 'string' || password.length < 6) {
-      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters.' });
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_PASSWORD',
+        'Password must be at least 6 characters.'
+      );
     }
 
     if (role !== 'farmer' && role !== 'buyer') {
-      return res.status(400).json({ success: false, error: 'Account role must be either Farmer or Buyer.' });
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_ROLE',
+        'Account role must be either Farmer or Buyer.'
+      );
     }
 
+    // 4. Duplicate Account Check
     const users = getUsers();
     if (users.some((u) => u.email.toLowerCase() === cleanEmail)) {
-      return res.status(409).json({ success: false, error: 'An account with this email address already exists.' });
+      return sendJsonError(
+        res,
+        409,
+        'DUPLICATE_ACCOUNT',
+        'An account with this email address already exists. Please sign in or use another email.'
+      );
     }
 
+    // 5. Secure Credential Generation
     const salt = crypto.randomBytes(16).toString('hex');
     const passwordHash = hashPassword(password, salt);
     const userId = `usr-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
@@ -498,6 +669,7 @@ app.post('/api/auth/register', (req, res) => {
       id: userId,
       name: name.trim(),
       email: cleanEmail,
+      phone: cleanPhone,
       role,
       passwordHash,
       salt,
@@ -508,7 +680,7 @@ app.post('/api/auth/register', (req, res) => {
     users.push(newUser);
     saveUsers(users);
 
-    // Initialize role-specific profile
+    // 6. Initialize Role-specific Profile with Validated Phone Number
     if (role === 'farmer') {
       const farmerProfiles = getFarmerProfiles();
       farmerProfiles[userId] = {
@@ -517,7 +689,7 @@ app.post('/api/auth/register', (req, res) => {
         farmName: `${newUser.name}'s Farm`,
         villageOrDistrict: String(farmDistrict || 'Vijayapura').trim(),
         state: 'Karnataka',
-        contactNumber: String(phone || '').trim(),
+        contactNumber: cleanPhone,
         preferredLanguage: newUser.preferredLanguage,
         preferredAreaUnit: 'acres',
         preferredWeightUnit: 'quintal',
@@ -536,7 +708,7 @@ app.post('/api/auth/register', (req, res) => {
         businessType: businessType || 'Wholesale Trader',
         location: String(farmDistrict || 'Vijayapura APMC').trim(),
         state: 'Karnataka',
-        contactNumber: String(phone || '').trim(),
+        contactNumber: cleanPhone,
         email: cleanEmail,
         preferredLanguage: newUser.preferredLanguage,
         preferredCategories: ['Grains & Cereals', 'Pulses', 'Vegetables', 'Oilseeds'],
@@ -544,7 +716,7 @@ app.post('/api/auth/register', (req, res) => {
       saveBuyerProfiles(buyerProfiles);
     }
 
-    // Generate Session Token
+    // 7. Generate Authenticated Session Token
     const token = generateSecureToken();
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const sessions = getSessions();
@@ -558,6 +730,7 @@ app.post('/api/auth/register', (req, res) => {
 
     const profile = getProfileForUser(newUser);
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.status(201).json({
       success: true,
       token,
@@ -565,18 +738,37 @@ app.post('/api/auth/register', (req, res) => {
       profile,
     });
   } catch (err: any) {
-    console.error('Registration error:', err);
-    return res.status(500).json({ success: false, error: err.message || 'Registration failed.' });
+    return sendJsonError(
+      res,
+      500,
+      'SERVER_ERROR',
+      'Account creation failed due to an unexpected server failure. Please try again.',
+      err
+    );
   }
 });
 
 // POST Login
 app.post('/api/auth/login', (req, res) => {
   try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_REQUEST',
+        'Request body must be a valid JSON object.'
+      );
+    }
+
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required.' });
+      return sendJsonError(
+        res,
+        400,
+        'MISSING_REQUIRED_FIELD',
+        'Email and password are required.'
+      );
     }
 
     const cleanEmail = String(email).trim().toLowerCase();
@@ -584,12 +776,22 @@ app.post('/api/auth/login', (req, res) => {
     const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      return sendJsonError(
+        res,
+        401,
+        'INVALID_CREDENTIALS',
+        'Invalid email or password.'
+      );
     }
 
     const isValid = verifyPassword(password, user.passwordHash, user.salt);
     if (!isValid) {
-      return res.status(401).json({ success: false, error: 'Invalid email or password.' });
+      return sendJsonError(
+        res,
+        401,
+        'INVALID_CREDENTIALS',
+        'Invalid email or password.'
+      );
     }
 
     // Generate Session
@@ -606,6 +808,7 @@ app.post('/api/auth/login', (req, res) => {
 
     const profile = getProfileForUser(user);
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.json({
       success: true,
       token,
@@ -613,8 +816,13 @@ app.post('/api/auth/login', (req, res) => {
       profile,
     });
   } catch (err: any) {
-    console.error('Login error:', err);
-    return res.status(500).json({ success: false, error: err.message || 'Login failed.' });
+    return sendJsonError(
+      res,
+      500,
+      'SERVER_ERROR',
+      'Login failed due to an unexpected server failure.',
+      err
+    );
   }
 });
 
@@ -786,7 +994,7 @@ app.post('/api/auth/reset-password', (req, res) => {
 app.put('/api/auth/profile', requireAuth, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
-    const { name, preferredLanguage, farmProfile, buyerProfile, role } = req.body;
+    const { name, preferredLanguage, farmProfile, buyerProfile, phone } = req.body;
 
     const users = getUsers();
     const userIdx = users.findIndex((u) => u.id === user.id);
@@ -800,32 +1008,49 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
         users[userIdx].preferredLanguage = preferredLanguage;
         user.preferredLanguage = preferredLanguage;
       }
-      if (role && (role === 'farmer' || role === 'buyer')) {
-        users[userIdx].role = role;
-        user.role = role;
+
+      // Check if phone number is being updated
+      const rawPhone = phone || (user.role === 'farmer' ? farmProfile?.contactNumber : buyerProfile?.contactNumber);
+      if (rawPhone) {
+        const phoneValidation = validateIndianPhoneNumber(rawPhone);
+        if (!phoneValidation.valid || !phoneValidation.normalized) {
+          return sendJsonError(
+            res,
+            400,
+            'INVALID_PHONE_NUMBER',
+            phoneValidation.error || 'A valid 10-digit Indian mobile number is required.'
+          );
+        }
+        users[userIdx].phone = phoneValidation.normalized;
+        user.phone = phoneValidation.normalized;
       }
+
       saveUsers(users);
     }
 
     if (farmProfile && user.role === 'farmer') {
       const fProfiles = getFarmerProfiles();
+      const current = fProfiles[user.id] || {};
       fProfiles[user.id] = {
-        ...fProfiles[user.id],
+        ...current,
         ...farmProfile,
         userId: user.id,
         name: user.name,
+        contactNumber: user.phone || farmProfile.contactNumber || current.contactNumber || '',
       };
       saveFarmerProfiles(fProfiles);
     }
 
     if (buyerProfile && user.role === 'buyer') {
       const bProfiles = getBuyerProfiles();
+      const current = bProfiles[user.id] || {};
       bProfiles[user.id] = {
-        ...bProfiles[user.id],
+        ...current,
         ...buyerProfile,
         id: user.id,
         userId: user.id,
         name: user.name,
+        contactNumber: user.phone || buyerProfile.contactNumber || current.contactNumber || '',
       };
       saveBuyerProfiles(bProfiles);
     }
@@ -838,7 +1063,7 @@ app.put('/api/auth/profile', requireAuth, (req, res) => {
       profile: currentProfile,
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to update profile.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to update profile.');
   }
 });
 
@@ -904,18 +1129,18 @@ app.delete('/api/auth/account', requireAuth, (req, res) => {
 
 // ==================== USER-SCOPED FARM DATA ENDPOINTS ====================
 // Crops
-app.get('/api/farmer/crops', requireAuth, (req, res) => {
+app.get('/api/farmer/crops', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const allCrops = getUserCrops();
     const userCrops = allCrops[user.id] || [];
     res.json({ success: true, crops: userCrops });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to load crops.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to load crops.');
   }
 });
 
-app.post('/api/farmer/crops', requireAuth, (req, res) => {
+app.post('/api/farmer/crops', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const cropData = req.body;
@@ -940,11 +1165,11 @@ app.post('/api/farmer/crops', requireAuth, (req, res) => {
 
     res.json({ success: true, crop: newRecord });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to save crop.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to save crop.');
   }
 });
 
-app.delete('/api/farmer/crops/:id', requireAuth, (req, res) => {
+app.delete('/api/farmer/crops/:id', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const cropId = req.params.id;
@@ -955,22 +1180,22 @@ app.delete('/api/farmer/crops/:id', requireAuth, (req, res) => {
     }
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to delete crop.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to delete crop.');
   }
 });
 
 // Observations
-app.get('/api/farmer/observations', requireAuth, (req, res) => {
+app.get('/api/farmer/observations', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const allObs = getUserObservations();
     res.json({ success: true, observations: allObs[user.id] || [] });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to load observations.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to load observations.');
   }
 });
 
-app.post('/api/farmer/observations', requireAuth, (req, res) => {
+app.post('/api/farmer/observations', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const obsData = req.body;
@@ -994,11 +1219,11 @@ app.post('/api/farmer/observations', requireAuth, (req, res) => {
 
     res.json({ success: true, observation: newRecord });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to save observation.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to save observation.');
   }
 });
 
-app.delete('/api/farmer/observations/:id', requireAuth, (req, res) => {
+app.delete('/api/farmer/observations/:id', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const obsId = req.params.id;
@@ -1009,22 +1234,22 @@ app.delete('/api/farmer/observations/:id', requireAuth, (req, res) => {
     }
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to delete observation.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to delete observation.');
   }
 });
 
 // Soil Scans
-app.get('/api/farmer/soil-scans', requireAuth, (req, res) => {
+app.get('/api/farmer/soil-scans', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const allScans = getUserSoilScans();
     res.json({ success: true, soilScans: allScans[user.id] || [] });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to load soil scans.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to load soil scans.');
   }
 });
 
-app.post('/api/farmer/soil-scans', requireAuth, (req, res) => {
+app.post('/api/farmer/soil-scans', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const scanData = req.body;
@@ -1048,11 +1273,11 @@ app.post('/api/farmer/soil-scans', requireAuth, (req, res) => {
 
     res.json({ success: true, soilScan: newRecord });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to save soil scan.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to save soil scan.');
   }
 });
 
-app.delete('/api/farmer/soil-scans/:id', requireAuth, (req, res) => {
+app.delete('/api/farmer/soil-scans/:id', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const scanId = req.params.id;
@@ -1063,22 +1288,22 @@ app.delete('/api/farmer/soil-scans/:id', requireAuth, (req, res) => {
     }
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to delete soil scan.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to delete soil scan.');
   }
 });
 
 // Plant Scans CRUD
-app.get('/api/farmer/plant-scans', requireAuth, (req, res) => {
+app.get('/api/farmer/plant-scans', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const allScans = getUserPlantScans();
     res.json({ success: true, plantScans: allScans[user.id] || [] });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to load plant scans.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to load plant scans.');
   }
 });
 
-app.post('/api/farmer/plant-scans', requireAuth, (req, res) => {
+app.post('/api/farmer/plant-scans', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const scanData = req.body;
@@ -1103,11 +1328,11 @@ app.post('/api/farmer/plant-scans', requireAuth, (req, res) => {
 
     res.json({ success: true, plantScan: newRecord });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to save plant scan.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to save plant scan.');
   }
 });
 
-app.delete('/api/farmer/plant-scans/:id', requireAuth, (req, res) => {
+app.delete('/api/farmer/plant-scans/:id', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const scanId = req.params.id;
@@ -1118,22 +1343,22 @@ app.delete('/api/farmer/plant-scans/:id', requireAuth, (req, res) => {
     }
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to delete plant scan.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to delete plant scan.');
   }
 });
 
 // Advisor Conversation History CRUD
-app.get('/api/farmer/advisor-history', requireAuth, (req, res) => {
+app.get('/api/farmer/advisor-history', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const allConvs = getUserAdvisorConversations();
     res.json({ success: true, messages: allConvs[user.id] || [] });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to load advisor history.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to load advisor history.');
   }
 });
 
-app.post('/api/farmer/advisor-history', requireAuth, (req, res) => {
+app.post('/api/farmer/advisor-history', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const { messages } = req.body;
@@ -1142,11 +1367,11 @@ app.post('/api/farmer/advisor-history', requireAuth, (req, res) => {
     saveUserAdvisorConversations(allConvs);
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to save advisor history.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to save advisor history.');
   }
 });
 
-app.delete('/api/farmer/advisor-history', requireAuth, (req, res) => {
+app.delete('/api/farmer/advisor-history', requireFarmer, (req, res) => {
   try {
     const user = (req as any).user as StoredUser;
     const allConvs = getUserAdvisorConversations();
@@ -1154,34 +1379,40 @@ app.delete('/api/farmer/advisor-history', requireAuth, (req, res) => {
     saveUserAdvisorConversations(allConvs);
     res.json({ success: true });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to clear advisor history.' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to clear advisor history.');
   }
 });
 
 // GET Shared Marketplace Listings
+// Privacy rule: Do not publicly expose phone numbers to every marketplace visitor.
+// If the requester is authenticated and is the seller of the listing, their phone is retained.
+// For all other visitors and buyers, contactPhone is not exposed in public browse feeds.
 app.get('/api/marketplace/listings', (req, res) => {
   try {
+    const user = (req as any).user as StoredUser | null;
     const data = getMarketplaceData();
+
+    const sanitizedListings = data.listings.map((l) => {
+      if (user && user.id === l.sellerId) {
+        return l;
+      }
+      const { contactPhone, ...publicInfo } = l;
+      return publicInfo;
+    });
+
     res.json({
       success: true,
-      listings: data.listings,
+      listings: sanitizedListings,
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to load listings' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to load listings');
   }
 });
 
-// POST Create Crop Listing (Farmer Role Required)
-app.post('/api/marketplace/listings', (req, res) => {
+// POST Create Crop Listing (Farmer Role Required on Server)
+app.post('/api/marketplace/listings', requireFarmer, (req, res) => {
   try {
-    const user = (req as any).user as StoredUser | null;
-    const userRole = user ? user.role : (req.headers['x-user-role'] as string) || req.body.userRole;
-    if (userRole !== 'farmer') {
-      return res.status(403).json({
-        success: false,
-        error: 'Permission denied: Only registered farmers are permitted to create crop produce listings.',
-      });
-    }
+    const user = (req as any).user as StoredUser;
 
     const {
       title,
@@ -1193,9 +1424,6 @@ app.post('/api/marketplace/listings', (req, res) => {
       priceUnit,
       location,
       state,
-      sellerName,
-      sellerType,
-      contactPhone,
       grade,
       harvestAvailability,
       description,
@@ -1203,14 +1431,13 @@ app.post('/api/marketplace/listings', (req, res) => {
     } = req.body;
 
     if (!title || !cropCategory || !quantity || !expectedPrice || !location) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required listing fields (title, cropCategory, quantity, expectedPrice, location).',
-      });
+      return sendJsonError(
+        res,
+        400,
+        'MISSING_REQUIRED_FIELD',
+        'Missing required listing fields (title, cropCategory, quantity, expectedPrice, location).'
+      );
     }
-
-    const sellerId = user ? user.id : (req.headers['x-user-id'] as string) || req.body.sellerId || `farmer-${Date.now()}`;
-    const sellerDisplayName = user ? (user.name || sellerName) : (sellerName || 'Farmer');
 
     const newListing = {
       id: `mkt-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
@@ -1223,13 +1450,13 @@ app.post('/api/marketplace/listings', (req, res) => {
       priceUnit: priceUnit || 'per quintal',
       location: String(location).trim(),
       state: String(state || 'Karnataka').trim(),
-      sellerId,
-      sellerName: String(sellerDisplayName).trim(),
-      sellerType: sellerType || 'Farmer',
-      contactPhone: String(contactPhone || '').trim(),
+      sellerId: user.id, // Enforce authenticated owner
+      sellerName: user.name,
+      sellerType: 'Farmer',
+      contactPhone: user.phone || '', // Associated with verified farmer account
       grade: grade || 'Grade A (Premium)',
       harvestAvailability: String(harvestAvailability || 'Ready for Immediate Dispatch').trim(),
-      isDemonstration: false, // Farmer's verified real listing!
+      isDemonstration: false,
       datePosted: new Date().toISOString().split('T')[0],
       description: String(description || '').trim(),
       photoUrl: photoUrl || undefined,
@@ -1244,38 +1471,39 @@ app.post('/api/marketplace/listings', (req, res) => {
       listing: newListing,
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to create listing' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to create listing');
   }
 });
 
-// DELETE Crop Listing (Enforce Seller Ownership)
-app.delete('/api/marketplace/listings/:id', (req, res) => {
+// DELETE Crop Listing (Enforce Seller Ownership on Server)
+app.delete('/api/marketplace/listings/:id', requireFarmer, (req, res) => {
   try {
     const listingId = req.params.id;
-    const user = (req as any).user as StoredUser | null;
-    const userRole = user ? user.role : (req.headers['x-user-role'] as string) || '';
-    const userId = user ? user.id : (req.headers['x-user-id'] as string) || '';
+    const user = (req as any).user as StoredUser;
 
     const store = getMarketplaceData();
     const listing = store.listings.find((l) => l.id === listingId);
 
     if (!listing) {
-      return res.status(404).json({ success: false, error: 'Listing not found.' });
+      return sendJsonError(res, 404, 'NOT_FOUND', 'Listing not found.');
     }
 
     if (listing.isDemonstration) {
-      return res.status(403).json({
-        success: false,
-        error: 'Sample demonstration listings are system-provided and cannot be deleted.',
-      });
+      return sendJsonError(
+        res,
+        403,
+        'FORBIDDEN',
+        'Sample demonstration listings are system-provided and cannot be deleted.'
+      );
     }
 
-    // Role and ownership verification: only the creator can delete
-    if (userRole !== 'farmer' || (listing.sellerId && listing.sellerId !== userId)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Forbidden: You only have permission to delete your own listings.',
-      });
+    if (listing.sellerId !== user.id) {
+      return sendJsonError(
+        res,
+        403,
+        'FORBIDDEN',
+        'You only have permission to delete your own listings.'
+      );
     }
 
     store.listings = store.listings.filter((l) => l.id !== listingId);
@@ -1283,57 +1511,41 @@ app.delete('/api/marketplace/listings/:id', (req, res) => {
 
     res.json({ success: true, message: 'Listing removed successfully.' });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to delete listing' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to delete listing');
   }
 });
 
 // GET Enquiries (Privacy: Buyers see only their enquiries, Farmers see only enquiries for their listings)
-app.get('/api/marketplace/enquiries', (req, res) => {
+app.get('/api/marketplace/enquiries', requireAuth, (req, res) => {
   try {
-    const user = (req as any).user as StoredUser | null;
-    const userRole = user ? user.role : (req.headers['x-user-role'] as string) || '';
-    const userId = user ? user.id : (req.headers['x-user-id'] as string) || '';
+    const user = (req as any).user as StoredUser;
     const store = getMarketplaceData();
 
-    let result = store.enquiries;
-    if (userRole === 'buyer' && userId) {
-      result = result.filter((e) => e.buyerId === userId);
-    } else if (userRole === 'farmer' && userId) {
-      // Find listings owned by this farmer
+    let result: any[] = [];
+    if (user.role === 'buyer') {
+      result = store.enquiries.filter((e) => e.buyerId === user.id);
+    } else if (user.role === 'farmer') {
       const farmerListingIds = new Set(
-        store.listings.filter((l) => l.sellerId === userId).map((l) => l.id)
+        store.listings.filter((l) => l.sellerId === user.id).map((l) => l.id)
       );
-      result = result.filter(
-        (e) => (e.sellerId && e.sellerId === userId) || farmerListingIds.has(e.listingId)
+      result = store.enquiries.filter(
+        (e) => (e.sellerId && e.sellerId === user.id) || farmerListingIds.has(e.listingId)
       );
     }
 
     res.json({ success: true, enquiries: result });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to get enquiries' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to get enquiries');
   }
 });
 
-// POST Create Purchase Enquiry (Buyer Role Required)
-app.post('/api/marketplace/enquiries', (req, res) => {
+// POST Create Purchase Enquiry (Buyer Role Required on Server)
+app.post('/api/marketplace/enquiries', requireBuyer, (req, res) => {
   try {
-    const user = (req as any).user as StoredUser | null;
-    const userRole = user ? user.role : (req.headers['x-user-role'] as string) || req.body.userRole;
-    if (userRole !== 'buyer') {
-      return res.status(403).json({
-        success: false,
-        error: 'Permission denied: Only registered buyers can submit purchase enquiries to farmers.',
-      });
-    }
+    const user = (req as any).user as StoredUser;
 
     const {
       listingId,
-      listingTitle,
-      farmerName,
-      sellerPhone,
-      sellerId,
-      buyerId,
-      buyerName,
       buyerPhone,
       buyerBusiness,
       buyerLocation,
@@ -1344,38 +1556,54 @@ app.post('/api/marketplace/enquiries', (req, res) => {
       message,
     } = req.body;
 
-    if (!listingId || !buyerName || !buyerPhone || !requestedQuantity) {
-      return res.status(400).json({
-        success: false,
-        error: 'Missing required enquiry fields (listingId, buyerName, buyerPhone, requestedQuantity).',
-      });
+    if (!listingId || !requestedQuantity) {
+      return sendJsonError(
+        res,
+        400,
+        'MISSING_REQUIRED_FIELD',
+        'Missing required enquiry fields (listingId, requestedQuantity).'
+      );
     }
 
-    const effectiveBuyerId = user ? user.id : buyerId || (req.headers['x-user-id'] as string) || `buyer-${Date.now()}`;
-    const effectiveBuyerName = user ? (buyerName || user.name) : buyerName;
+    const store = getMarketplaceData();
+    const targetListing = store.listings.find((l) => l.id === listingId);
+    if (!targetListing) {
+      return sendJsonError(res, 404, 'NOT_FOUND', 'The requested crop listing does not exist.');
+    }
+
+    // Validate Buyer Contact Phone Number
+    const phoneToUse = buyerPhone || user.phone;
+    const phoneValidation = validateIndianPhoneNumber(phoneToUse);
+    if (!phoneValidation.valid || !phoneValidation.normalized) {
+      return sendJsonError(
+        res,
+        400,
+        'INVALID_PHONE_NUMBER',
+        phoneValidation.error || 'A valid Indian mobile number is required to contact the grower.'
+      );
+    }
 
     const newEnquiry = {
       id: `enq-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
       listingId,
-      listingTitle: String(listingTitle || 'Produce').trim(),
-      farmerName: String(farmerName || 'Farmer').trim(),
-      sellerPhone: sellerPhone || undefined,
-      sellerId: sellerId || undefined,
-      buyerId: effectiveBuyerId,
-      buyerName: String(effectiveBuyerName).trim(),
-      buyerPhone: String(buyerPhone).trim(),
+      listingTitle: targetListing.title,
+      farmerName: targetListing.sellerName,
+      sellerPhone: targetListing.contactPhone || undefined, // Provided in agreed enquiry record
+      sellerId: targetListing.sellerId || undefined,
+      buyerId: user.id, // Strictly authenticated buyer
+      buyerName: user.name,
+      buyerPhone: phoneValidation.normalized,
       buyerBusiness: String(buyerBusiness || '').trim(),
       buyerLocation: String(buyerLocation || '').trim(),
       requestedQuantity: Number(requestedQuantity) || 1,
-      unit: unit || 'quintal',
-      offeredPrice: offeredPrice ? Number(offeredPrice) : undefined,
-      priceUnit: priceUnit || 'per quintal',
+      unit: unit || targetListing.unit || 'quintal',
+      offeredPrice: offeredPrice ? Number(offeredPrice) : targetListing.expectedPrice,
+      priceUnit: priceUnit || targetListing.priceUnit || 'per quintal',
       message: String(message || 'I am interested in procuring this harvest. Please contact me.').trim(),
       createdAt: new Date().toISOString(),
       status: 'Pending Response',
     };
 
-    const store = getMarketplaceData();
     store.enquiries.unshift(newEnquiry);
     saveMarketplaceData(store);
 
@@ -1384,20 +1612,35 @@ app.post('/api/marketplace/enquiries', (req, res) => {
       enquiry: newEnquiry,
     });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to submit enquiry' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to submit enquiry');
   }
 });
 
-// PATCH Update Enquiry Status (Farmer Action)
-app.patch('/api/marketplace/enquiries/:id/status', (req, res) => {
+// PATCH Update Enquiry Status (Farmer Action with Listing Ownership Verification)
+app.patch('/api/marketplace/enquiries/:id/status', requireFarmer, (req, res) => {
   try {
     const enquiryId = req.params.id;
     const { status } = req.body;
+    const user = (req as any).user as StoredUser;
+
     const store = getMarketplaceData();
     const index = store.enquiries.findIndex((e) => e.id === enquiryId);
 
     if (index === -1) {
-      return res.status(404).json({ success: false, error: 'Enquiry record not found.' });
+      return sendJsonError(res, 404, 'NOT_FOUND', 'Enquiry record not found.');
+    }
+
+    const enquiry = store.enquiries[index];
+    const targetListing = store.listings.find((l) => l.id === enquiry.listingId);
+
+    // Ensure the farmer owns the listing for this enquiry
+    if (enquiry.sellerId !== user.id && (!targetListing || targetListing.sellerId !== user.id)) {
+      return sendJsonError(
+        res,
+        403,
+        'FORBIDDEN',
+        'You only have permission to update enquiries for your own crop listings.'
+      );
     }
 
     store.enquiries[index].status = status;
@@ -1405,7 +1648,7 @@ app.patch('/api/marketplace/enquiries/:id/status', (req, res) => {
 
     res.json({ success: true, enquiry: store.enquiries[index] });
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message || 'Failed to update enquiry status' });
+    return sendJsonError(res, 500, 'SERVER_ERROR', err.message || 'Failed to update enquiry status');
   }
 });
 
@@ -1413,20 +1656,23 @@ app.patch('/api/marketplace/enquiries/:id/status', (req, res) => {
 app.post('/api/analyze-soil', async (req, res) => {
   const { imageBase64, mimeType, farmContext } = req.body;
 
-  if (!imageBase64) {
-    return res.status(400).json({
-      success: false,
-      error: 'No image data provided for soil analysis.',
-    });
+  if (!imageBase64 || typeof imageBase64 !== 'string') {
+    return sendJsonError(
+      res,
+      400,
+      'MISSING_REQUIRED_FIELD',
+      'No image data provided for soil analysis. Please capture a real photograph.'
+    );
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(503).json({
-      success: false,
-      aiUnavailable: true,
-      error: 'Gemini AI API key is not configured on the server. AI image analysis is unavailable.',
-    });
+    return sendJsonError(
+      res,
+      503,
+      'GEMINI_API_KEY_MISSING',
+      'Gemini AI API key is not configured on the server. AI image analysis is unavailable.'
+    );
   }
 
   try {
@@ -1504,7 +1750,8 @@ Return response STRICTLY in valid JSON matching this schema:
     // Retry loop for transient model availability spikes
     let responseText = '';
     let lastError: any = null;
-    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
+    const modelsToTry = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -1515,7 +1762,7 @@ Return response STRICTLY in valid JSON matching this schema:
               {
                 inlineData: {
                   mimeType: mimeType || 'image/jpeg',
-                  data: imageBase64,
+                  data: cleanBase64,
                 },
               },
               {
@@ -1548,6 +1795,7 @@ Return response STRICTLY in valid JSON matching this schema:
     const cleanJson = responseText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
     const parsedData = JSON.parse(cleanJson);
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.json({
       success: true,
       analysis: {
@@ -1557,14 +1805,13 @@ Return response STRICTLY in valid JSON matching this schema:
       },
     });
   } catch (error: any) {
-    console.error('Soil analysis error:', error);
-    return res.status(500).json({
-      success: false,
-      aiUnavailable: error.status === 503 || error.status === 429,
-      error:
-        error.message ||
-        'Unable to complete AI soil analysis at this time. Please check your internet connection or try again.',
-    });
+    return sendJsonError(
+      res,
+      error.status === 503 || error.status === 429 ? 503 : 500,
+      error.status === 429 ? 'RATE_LIMIT_EXCEEDED' : 'AI_SERVICE_ERROR',
+      error.message || 'Unable to complete AI soil analysis at this time. Please check your internet connection or try again.',
+      error
+    );
   }
 });
 
@@ -1572,20 +1819,23 @@ Return response STRICTLY in valid JSON matching this schema:
 app.post('/api/analyze-plant', async (req, res) => {
   const { imageBase64, mimeType, farmContext } = req.body;
 
-  if (!imageBase64) {
-    return res.status(400).json({
-      success: false,
-      error: 'No image data provided for plant analysis.',
-    });
+  if (!imageBase64 || typeof imageBase64 !== 'string') {
+    return sendJsonError(
+      res,
+      400,
+      'MISSING_REQUIRED_FIELD',
+      'No image data provided for plant analysis. Please capture a real photograph.'
+    );
   }
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(503).json({
-      success: false,
-      aiUnavailable: true,
-      error: 'Gemini AI API key is not configured on the server. AI plant analysis is unavailable.',
-    });
+    return sendJsonError(
+      res,
+      503,
+      'GEMINI_API_KEY_MISSING',
+      'Gemini AI API key is not configured on the server. AI plant analysis is unavailable.'
+    );
   }
 
   try {
@@ -1662,7 +1912,8 @@ Return STRICTLY in JSON format matching this schema:
 
     let responseText = '';
     let lastError: any = null;
-    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
+    const modelsToTry = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
 
     for (const modelName of modelsToTry) {
       for (let attempt = 1; attempt <= 2; attempt++) {
@@ -1673,7 +1924,7 @@ Return STRICTLY in JSON format matching this schema:
               {
                 inlineData: {
                   mimeType: mimeType || 'image/jpeg',
-                  data: imageBase64,
+                  data: cleanBase64,
                 },
               },
               {
@@ -1706,6 +1957,7 @@ Return STRICTLY in JSON format matching this schema:
     const cleanJson = responseText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
     const parsedData = JSON.parse(cleanJson);
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.json({
       success: true,
       analysis: {
@@ -1715,14 +1967,13 @@ Return STRICTLY in JSON format matching this schema:
       },
     });
   } catch (error: any) {
-    console.error('Plant analysis error:', error);
-    return res.status(500).json({
-      success: false,
-      aiUnavailable: error.status === 503 || error.status === 429,
-      error:
-        error.message ||
-        'Unable to complete AI plant analysis at this time. Please check your internet connection or try again.',
-    });
+    return sendJsonError(
+      res,
+      error.status === 503 || error.status === 429 ? 503 : 500,
+      error.status === 429 ? 'RATE_LIMIT_EXCEEDED' : 'AI_SERVICE_ERROR',
+      error.message || 'Unable to complete AI plant analysis at this time. Please check your internet connection or try again.',
+      error
+    );
   }
 });
 
@@ -1771,7 +2022,7 @@ app.post('/api/advisor-chat', async (req, res) => {
       ? `Preferred Language: Respond primarily in the farmer's language (${language}) or bilingual with simple terms in brackets so the farmer feels completely comfortable.`
       : `Respond in clear, friendly English appropriate for Indian agricultural contexts.`;
 
-    const systemPrompt = `You are AGROVA AI Advisor, an expert, trustworthy, and empathetic digital agricultural advisor for Indian farmers.
+    const systemPrompt = `You are AgriConnect AI Advisor, an expert, trustworthy, and empathetic digital agricultural advisor for Indian farmers.
 
 ${contextSection}
 ${langInstruction}
@@ -1833,36 +2084,32 @@ GUIDELINES:
   }
 });
 
-// Fertilizer Guidance AI endpoint
+// Fertilizer Guidance AI endpoint (supports direct photo analysis and agronomic parameters)
 app.post('/api/fertilizer-guidance', async (req, res) => {
   const {
+    imageBase64,
+    mimeType,
     cropName,
     growthStage,
     location,
     soilType,
     hasSoilTest,
     soilTestResults, // e.g., { ph, nitrogen, phosphorus, potassium, organicCarbon, labName }
-    scanResultsSummary, // e.g. recent foliage condition or visual soil texture
+    scanResultsSummary,
     organicManureApplied,
     previousCropLegume,
     farmingNotes,
     language,
-  } = req.body;
-
-  if (!cropName) {
-    return res.status(400).json({
-      success: false,
-      error: 'Crop name is required for fertilizer guidance.',
-    });
-  }
+  } = req.body || {};
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(503).json({
-      success: false,
-      aiUnavailable: true,
-      error: 'Gemini AI API key is not configured on the server. Fertilizer Guidance is unavailable.',
-    });
+    return sendJsonError(
+      res,
+      503,
+      'GEMINI_API_KEY_MISSING',
+      'Gemini AI API key is not configured on the server. Fertilizer Guidance is unavailable.'
+    );
   }
 
   try {
@@ -1875,7 +2122,7 @@ app.post('/api/fertilizer-guidance', async (req, res) => {
       },
     });
 
-    let contextDetails = `Crop: ${cropName}\nGrowth Stage: ${growthStage || 'Vegetative'}\nLocation: ${location || 'Karnataka, India'}\nSoil Type: ${soilType || 'Unspecified'}\n`;
+    let contextDetails = `Reported Crop: ${cropName || 'Not specified (please inspect image)'}\nReported Growth Stage: ${growthStage || 'Vegetative'}\nLocation: ${location || 'Karnataka, India'}\nSoil Type: ${soilType || 'Unspecified'}\n`;
     if (organicManureApplied) {
       contextDetails += `Organic Manure / FYM Applied: Yes (provides slow-release micronutrients and biological activity).\n`;
     }
@@ -1898,30 +2145,39 @@ app.post('/api/fertilizer-guidance', async (req, res) => {
       ? `Respond in the farmer's preferred language code: ${language}. Ensure agricultural concepts and terminology are natural, respectful, and easy to understand.`
       : `Respond in clear, accessible English appropriate for Indian agricultural extension.`;
 
-    const systemPrompt = `You are AGROVA Fertilizer & Soil Fertility Advisor, a certified agronomic nutrition expert for Indian agriculture.
-Analyze the farmer's crop nutrition context:
+    const systemPrompt = `You are AgriConnect Fertilizer & Soil Fertility Advisor, a certified agronomic nutrition expert for Indian agriculture.
+Analyze the provided crop nutrition context and/or plant/leaf/soil photograph:
 ${contextDetails}
 
-CRITICAL AGRONOMIC RULES:
-1. SCIENTIFIC HONESTY ON MEASUREMENTS VS ESTIMATES:
-   - Clearly distinguish confirmed laboratory measurements from visual observations and model estimates.
-   - A photo alone CANNOT measure soil pH, NPK, or moisture. If no laboratory Soil Health Card is supplied, explicitly state that soil chemistry is unconfirmed.
-   - NEVER invent or hallucinate pH numbers, NPK values, or nutrient deficiencies.
-2. GROWTH-STAGE NUTRIENT DYNAMICS:
-   - Detail the primary macronutrients (Nitrogen, Phosphorus, Potassium) and essential secondary/micronutrients (e.g. Zinc, Boron, Sulphur) required specifically for ${cropName} at the "${growthStage}" stage.
-   - Explain basal application vs top-dressing split timing.
-3. CONSERVATIVE & RESPONSIBLE DOSAGE GUIDANCE:
-   - AVOID unsupported chemical fertilizer bag quantities or kilograms unless certified soil test data, acreage, irrigation type, and exact fertilizer grade (e.g., DAP 18:46:0, Urea 46%, MOP 60%) are explicitly provided.
-   - Warn against excessive nitrogen application which causes vegetative lodging and attracts fungal diseases.
-   - Advise farmers to verify recommended fertilizer rates with their local State Agricultural University Package of Practices (PoP) or Krishi Vigyan Kendra (KVK).
-4. FOLLOW-UP QUESTIONS:
-   - Provide 1-2 concise, practical follow-up questions to clarify missing parameters (e.g. irrigation source, target yield, or last fertilizer split date).
-5. LANGUAGE:
+CRITICAL AGRONOMIC & SCIENTIFIC RULES:
+1. PLANT & CROP IDENTIFICATION:
+   - When a photograph is provided, identify the crop or plant shown if visible. If ambiguous, state visual characteristics and uncertainty.
+2. VISIBLE SYMPTOMS & POSSIBLE NUTRIENT DEFICIENCIES:
+   - Describe visible foliage or soil surface symptoms (e.g. leaf tip scorch, interveinal chlorosis, pale yellowish canopy, purpling on stems/undersides, stunted growth).
+   - Relate visible symptoms to possible nutrient concerns (e.g. Nitrogen, Phosphorus, Potassium, Zinc, Iron, Sulphur, Magnesium).
+3. SCIENTIFIC HONESTY ON MEASUREMENTS VS ESTIMATES:
+   - Clearly distinguish visual observations from confirmed soil chemistry measurements.
+   - A photograph alone CANNOT measure soil pH, NPK, or moisture. If no laboratory Soil Health Card is supplied, explicitly state that soil chemistry is unconfirmed.
+   - NEVER invent or hallucinate exact pH numbers, NPK values, or nutrient deficiencies without evidence.
+4. EVIDENCE-BASED FERTILIZER RECOMMENDATIONS:
+   - Recommend suitable fertilizer types (e.g. Urea, DAP, MOP, SSP, Zinc Sulphate, Boron, FYM/Compost, biofertilizers) ONLY when the evidence and growth stage support the recommendation.
+   - Explain the purpose of each recommendation (e.g. "Nitrogen for vegetative canopy recovery", "Potassium for stalk strength and drought resilience").
+   - Detail safe application considerations (e.g. split application to prevent leaching, applying in moist soil, avoiding direct contact with young stems to prevent salt burn).
+5. RESPONSIBLE DOSAGE GUIDANCE:
+   - AVOID inventing exact fertilizer kilogram/acre application rates from an image alone.
+   - Explicitly explain that laboratory soil testing (Soil Health Card) and local agricultural expertise (Krishi Vigyan Kendra / State Agricultural University Package of Practices) are necessary for precise fertilizer quantities.
+6. FOLLOW-UP QUESTIONS:
+   - Ask concise follow-up questions for the crop, growth stage, location, irrigation method, or soil-test information when needed.
+7. LANGUAGE:
    - ${langInstruction}
 
 Return STRICT JSON matching this schema:
 {
-  "summary": string,
+  "identifiedPlant": string,
+  "confidence": string,
+  "visibleSymptoms": string,
+  "possibleNutrientConcerns": string[],
+  "measuredVsEstimatedNotice": string,
   "stageNutrientDynamics": [
     {
       "nutrient": string,
@@ -1929,21 +2185,46 @@ Return STRICT JSON matching this schema:
       "managementAdvice": string
     }
   ],
-  "measuredVsEstimatedNotice": string,
+  "recommendedFertilizerTypes": [
+    {
+      "fertilizerType": string,
+      "purpose": string,
+      "applicationConsiderations": string
+    }
+  ],
+  "safeApplicationConsiderations": string,
   "actionableNextSteps": string[],
   "followUpQuestions": string[],
-  "extensionDisclaimer": string
+  "extensionDisclaimer": string,
+  "summary": string
 }`;
+
+    const contents: any[] = [];
+    if (imageBase64 && typeof imageBase64 === 'string') {
+      const cleanBase64 = imageBase64.replace(/^data:[^;]+;base64,/, '');
+      contents.push({
+        inlineData: {
+          mimeType: mimeType || 'image/jpeg',
+          data: cleanBase64,
+        },
+      });
+    }
+
+    contents.push({
+      text: imageBase64
+        ? `Analyze this photograph of a crop/plant/soil for agricultural fertilizer guidance. ${cropName ? `Reported crop: ${cropName}.` : ''} ${growthStage ? `Growth stage: ${growthStage}.` : ''}`
+        : `Provide fertilizer and nutrient management guidance for ${cropName || 'crop'} at ${growthStage || 'current'} stage.`,
+    });
 
     let responseText = '';
     let lastError: any = null;
-    const modelsToTry = ['gemini-3.1-flash-lite', 'gemini-3.8-flash', 'gemini-flash-latest'];
+    const modelsToTry = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.1-flash-lite'];
 
     for (const modelName of modelsToTry) {
       try {
         const result = await ai.models.generateContent({
           model: modelName,
-          contents: [{ text: `Provide fertilizer guidance for ${cropName} at ${growthStage} stage.` }],
+          contents,
           config: {
             systemInstruction: systemPrompt,
             responseMimeType: 'application/json',
@@ -1966,19 +2247,41 @@ Return STRICT JSON matching this schema:
     const cleanJson = responseText.replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
     const parsedData = JSON.parse(cleanJson);
 
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
     return res.json({
       success: true,
       guidance: parsedData,
     });
   } catch (err: any) {
-    console.error('Fertilizer guidance error:', err);
-    return res.status(500).json({
-      success: false,
-      aiUnavailable: err.status === 503 || err.status === 429,
-      error: err.message || 'Unable to generate fertilizer guidance at this time. Please try again.',
-    });
+    return sendJsonError(
+      res,
+      err.status === 503 || err.status === 429 ? 503 : 500,
+      err.status === 429 ? 'RATE_LIMIT_EXCEEDED' : 'AI_SERVICE_ERROR',
+      err.message || 'Unable to generate fertilizer guidance at this time. Please try again.',
+      err
+    );
   }
 });
+
+// Catch-all for undefined /api/* routes so API requests always receive JSON rather than HTML
+app.all('/api/*', (req, res) => {
+  return sendJsonError(res, 404, 'NOT_FOUND', `API endpoint ${req.method} ${req.path} not found.`);
+});
+
+// Global API error handler for any unexpected server failures in /api/* routes
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (req.path.startsWith('/api/')) {
+    return sendJsonError(
+      res,
+      err.status || 500,
+      err.code || 'INTERNAL_SERVER_ERROR',
+      'An unexpected server error occurred. Please try again.',
+      err
+    );
+  }
+  next(err);
+});
+
 
 
 // Setup Vite middleware in dev or static server in prod
@@ -1998,7 +2301,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`AGROVA server running on http://0.0.0.0:${PORT} (${isProduction ? 'production' : 'development'})`);
+    console.log(`AgriConnect server running on http://0.0.0.0:${PORT} (${isProduction ? 'production' : 'development'})`);
   });
 }
 

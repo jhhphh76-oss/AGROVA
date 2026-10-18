@@ -259,7 +259,7 @@ export const BuyerMarketplaceScreen: React.FC<BuyerMarketplaceScreenProps> = ({
           <span>APMC Mandi Transparency Notice</span>
         </div>
         <p className="text-[11px] leading-relaxed text-[#416149]">
-          Rates displayed represent actual APMC market arrivals and modal price benchmarks in Karnataka. AGROVA serves as a direct agricultural connection platform; physical sampling, grading, tare weighing, and statutory mandi fees remain subject to local APMC market regulations.
+          Rates displayed represent actual APMC market arrivals and modal price benchmarks in Karnataka. AgriConnect serves as a direct agricultural connection platform; physical sampling, grading, tare weighing, and statutory mandi fees remain subject to local APMC market regulations.
         </p>
       </div>
     </div>

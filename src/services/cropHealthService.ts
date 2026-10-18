@@ -24,14 +24,14 @@ export const DEFAULT_GRADE_THRESHOLDS: GradeThresholds = {
 };
 
 /**
- * AGROVA Crop-Health Assessment Method
+ * AgriConnect Crop-Health Assessment Method
  * 
  * 1. Scope: Evaluates crop foliage health exclusively from valid Plant Scan results.
  *    (Soil measurements and plant observations are strictly separated: no combining plant-health
  *    observations and soil measurements into one score without a documented, scientifically justified method).
  * 2. Validity: Only scans with complete AI visual assessments where `isSuitable === true`
  *    are considered valid. Blurry, unidentifiable, or non-plant photos are discarded.
- * 3. Thresholds (AGROVA product thresholds, not an established agricultural standard):
+ * 3. Thresholds (AgriConnect product thresholds, not an established agricultural standard):
  *    - 95–100%: A+ (A genuine 100% score receives A+)
  *    - 85–94%:  A
  *    - 70–84%:  B

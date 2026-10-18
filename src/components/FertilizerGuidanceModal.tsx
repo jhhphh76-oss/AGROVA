@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   X, 
   Sparkles, 
@@ -7,11 +7,12 @@ import {
   ShieldAlert, 
   BookmarkPlus, 
   HelpCircle,
-  RefreshCw,
+  RefreshCw, 
   FlaskConical,
   Sprout,
   ArrowRight,
-  Info
+  Info,
+  Camera
 } from 'lucide-react';
 import { GrowthStage, SupportedLanguage, FarmerProfile, PlantScanRecord, SoilScanRecord } from '../types';
 import { TRANSLATIONS } from '../constants/translations';
@@ -30,11 +31,21 @@ interface FertilizerGuidanceModalProps {
 
 interface GuidanceResult {
   summary: string;
-  stageNutrientDynamics: {
+  identifiedPlant?: string;
+  confidence?: string;
+  visibleSymptoms?: string;
+  possibleNutrientConcerns?: string[];
+  stageNutrientDynamics?: {
     nutrient: string;
     role: string;
     managementAdvice: string;
   }[];
+  recommendedFertilizerTypes?: {
+    fertilizerType: string;
+    purpose: string;
+    applicationConsiderations: string;
+  }[];
+  safeApplicationConsiderations?: string;
   measuredVsEstimatedNotice: string;
   actionableNextSteps: string[];
   followUpQuestions: string[];
@@ -89,6 +100,11 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
   const [includeScanContext, setIncludeScanContext] = useState<boolean>(true);
   const [selectedScanSummary, setSelectedScanSummary] = useState<string>('');
 
+  // Native phone camera image capture state
+  const [capturedPhoto, setCapturedPhoto] = useState<{ file: File; dataUrl: string } | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
+
   // Organic context
   const [organicManureApplied, setOrganicManureApplied] = useState<boolean>(true);
   const [previousCropLegume, setPreviousCropLegume] = useState<boolean>(false);
@@ -123,10 +139,35 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
     }
   }, [plantScans, soilScans]);
 
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setCameraError(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setCameraError('Selected file is not an image. Please take a photo with your camera.');
+      e.target.value = '';
+      return;
+    }
+    setCameraError(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setCapturedPhoto({ file, dataUrl: reader.result });
+      }
+    };
+    reader.onerror = () => {
+      setCameraError('Could not read image from camera. Please try taking the photo again.');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
   if (!isOpen) return null;
 
   const handleFetchGuidance = async (e: React.FormEvent) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setIsLoading(true);
     setErrorMsg(null);
     setSaveSuccessMsg(null);
@@ -137,6 +178,8 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
 
     try {
       const payload = {
+        imageBase64: capturedPhoto?.dataUrl,
+        mimeType: capturedPhoto?.file.type || 'image/jpeg',
         cropName: crop,
         growthStage: stage,
         location: locationText,
@@ -164,9 +207,19 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to generate fertilizer guidance.');
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        console.error('Failed to parse fertilizer guidance response as JSON:', parseErr);
+      }
+
+      if (!res.ok || !data?.success) {
+        let errText = 'Failed to generate fertilizer guidance.';
+        if (data?.error) {
+          errText = typeof data.error === 'object' && data.error.message ? data.error.message : data.error;
+        }
+        throw new Error(errText);
       }
 
       setGuidanceResult(data.guidance);
@@ -248,9 +301,9 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
               <button
                 type="button"
                 onClick={handleFetchGuidance}
-                className="px-2.5 py-1 bg-red-100 text-red-800 hover:bg-red-200 rounded-lg font-bold text-[11px] shrink-0"
+                className="px-2.5 py-1 bg-red-100 text-red-800 hover:bg-red-200 rounded-lg font-bold text-[11px] shrink-0 cursor-pointer"
               >
-                Retry
+                Try Again
               </button>
             </div>
           )}
@@ -258,6 +311,80 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
           {!guidanceResult ? (
             /* Input Form */
             <form onSubmit={handleFetchGuidance} className="space-y-4">
+              {/* Primary Camera Capture Section: Strictly ONE Launch Phone Camera App button */}
+              <div className="bg-[#f5f9f3] rounded-2xl p-4 border border-[#cfe2ca] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-emerald-700" />
+                    <span className="text-xs font-bold text-[#144225] uppercase tracking-wider font-display">
+                      Crop / Leaf / Soil Photo (Optional for Gemini Analysis)
+                    </span>
+                  </div>
+                  {capturedPhoto && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      ✓ Photo Attached
+                    </span>
+                  )}
+                </div>
+
+                {cameraError && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 text-red-800 rounded-xl text-xs flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <span>{cameraError}</span>
+                  </div>
+                )}
+
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCameraCapture}
+                  className="hidden"
+                />
+
+                {!capturedPhoto ? (
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="w-full py-3.5 px-4 rounded-xl bg-[#14492a] hover:bg-[#0f3c21] active:scale-95 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <Camera className="w-4 h-4 text-emerald-300" />
+                      <span>Launch Phone Camera App</span>
+                    </button>
+                    <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                      Capture a real photograph of affected leaves or soil for live Gemini vision analysis.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    <div className="relative rounded-xl overflow-hidden bg-black max-h-[220px] flex items-center justify-center border border-slate-200">
+                      <img
+                        src={capturedPhoto.dataUrl}
+                        alt="Captured scan for fertilizer guidance"
+                        className="max-h-[220px] w-auto object-contain"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-emerald-900 font-medium truncate">
+                        {capturedPhoto.file.name || 'Real photo ready for Gemini analysis'}
+                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setCapturedPhoto(null)}
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 transition flex items-center gap-1 cursor-pointer"
+                        >
+                          <X className="w-3 h-3" />
+                          <span>Remove Photo</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Crop Selection */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
@@ -269,7 +396,7 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                       type="button"
                       key={c}
                       onClick={() => setCrop(c)}
-                      className={`px-2 py-2 text-[11px] sm:text-xs font-medium rounded-xl border text-center transition min-h-[40px] truncate ${
+                      className={`px-2 py-2 text-[11px] sm:text-xs font-medium rounded-xl border text-center transition min-h-[40px] truncate cursor-pointer ${
                         crop === c
                           ? 'bg-[#14492a] text-white border-[#14492a] font-bold shadow-xs'
                           : 'bg-[#f7faf5] border-[#dbe7d5] text-[#2c4734] hover:bg-white'
@@ -315,7 +442,7 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                     <button
                       type="button"
                       onClick={() => setHasSoilTest(true)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
                         hasSoilTest
                           ? 'bg-[#14492a] text-white shadow-2xs'
                           : 'bg-white border border-slate-200 text-slate-600'
@@ -326,7 +453,7 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                     <button
                       type="button"
                       onClick={() => setHasSoilTest(false)}
-                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
+                      className={`px-3 py-1.5 text-xs font-bold rounded-xl transition cursor-pointer ${
                         !hasSoilTest
                           ? 'bg-[#14492a] text-white shadow-2xs'
                           : 'bg-white border border-slate-200 text-slate-600'
@@ -391,7 +518,7 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                   </div>
                 ) : (
                   <div className="text-[11px] text-slate-500 bg-white p-2.5 rounded-xl border border-slate-200/60 leading-relaxed">
-                    💡 Without a laboratory test, guidance will provide standard crop nutritional timing. AGROVA will never invent chemical measurements.
+                    💡 Without a laboratory test, guidance will provide standard crop nutritional timing. AgriConnect will never invent chemical measurements.
                   </div>
                 )}
               </div>
@@ -458,17 +585,17 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full min-h-[46px] rounded-2xl bg-[#14492a] hover:bg-[#0e3a20] active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition disabled:opacity-50"
+                  className="w-full min-h-[46px] rounded-2xl bg-[#14492a] hover:bg-[#0e3a20] active:scale-[0.99] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition disabled:opacity-50 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin text-emerald-300" />
-                      <span>Generating Agronomic Nutrition Guidance...</span>
+                      <span>{capturedPhoto ? 'Analyzing Image with Gemini Vision...' : 'Generating Agronomic Nutrition Guidance...'}</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>{t.calculateGuidance}</span>
+                      <span>{capturedPhoto ? 'Analyze Image for Fertilizer Guidance' : t.calculateGuidance}</span>
                     </>
                   )}
                 </button>
@@ -477,6 +604,31 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
           ) : (
             /* Guidance Results Mode */
             <div className="space-y-4">
+              {/* Photo & Plant Identification Banner (if photo was analyzed) */}
+              {capturedPhoto && (
+                <div className="bg-[#f0f7ed] rounded-2xl p-3.5 border border-[#c4e0be] flex gap-3 items-center">
+                  <img
+                    src={capturedPhoto.dataUrl}
+                    alt="Analyzed crop photo"
+                    className="w-16 h-16 rounded-xl object-cover shrink-0 border border-[#b2d5ab]"
+                  />
+                  <div className="min-w-0 space-y-0.5">
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                      Visual Plant Inspection
+                    </span>
+                    <h4 className="text-xs sm:text-sm font-bold text-[#103d24] truncate">
+                      {guidanceResult.identifiedPlant || crop}
+                    </h4>
+                    {guidanceResult.confidence && (
+                      <span className="text-[11px] text-slate-600 block">
+                        Confidence: {guidanceResult.confidence}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Overall Strategy Card */}
               <div className="p-4 rounded-2xl bg-[#edf7ea] border border-[#b9e2b1] text-[#0d4a2b] space-y-1.5">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
@@ -486,6 +638,69 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                   {guidanceResult.summary}
                 </p>
               </div>
+
+              {/* Visible Symptoms & Nutrient Deficiency Clues */}
+              {guidanceResult.visibleSymptoms && (
+                <div className="bg-white rounded-2xl border border-[#d6e4cf] p-4 space-y-2 text-xs">
+                  <h4 className="font-bold text-[#14492a] uppercase tracking-wider text-[11px]">
+                    Observed Foliage & Crop Symptoms
+                  </h4>
+                  <p className="text-slate-700 leading-relaxed text-xs">
+                    {guidanceResult.visibleSymptoms}
+                  </p>
+                  {guidanceResult.possibleNutrientConcerns && guidanceResult.possibleNutrientConcerns.length > 0 && (
+                    <div className="pt-1 flex flex-wrap gap-1.5">
+                      {guidanceResult.possibleNutrientConcerns.map((conc, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2.5 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold"
+                        >
+                          ⚠️ {conc}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Recommended Fertilizer Types (with Purpose & Application Considerations) */}
+              {guidanceResult.recommendedFertilizerTypes && guidanceResult.recommendedFertilizerTypes.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#d6e4cf] p-4 space-y-2.5">
+                  <h4 className="text-xs font-bold text-[#14492a] uppercase tracking-wider">
+                    Recommended Fertilizer Types & Purpose
+                  </h4>
+                  <div className="space-y-2">
+                    {guidanceResult.recommendedFertilizerTypes.map((fert, idx) => (
+                      <div key={idx} className="p-3 bg-[#f8faf6] rounded-xl border border-[#dce8d5] space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#133e24] text-xs">{fert.fertilizerType}</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            Evidence-based
+                          </span>
+                        </div>
+                        <p className="text-slate-700 text-[11px] leading-relaxed">
+                          <strong>Purpose:</strong> {fert.purpose}
+                        </p>
+                        <p className="text-emerald-900 text-[11px] leading-relaxed">
+                          <strong>Application Note:</strong> {fert.applicationConsiderations}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Safe Application Considerations */}
+              {guidanceResult.safeApplicationConsiderations && (
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-2xl text-xs text-amber-950 space-y-1">
+                  <span className="font-bold text-amber-900 block text-[11px] uppercase tracking-wider">
+                    Safe Application Considerations
+                  </span>
+                  <p className="text-[11px] leading-relaxed text-amber-900">
+                    {guidanceResult.safeApplicationConsiderations}
+                  </p>
+                </div>
+              )}
 
               {/* Measured vs Estimated Transparency Notice */}
               <div className="p-3 bg-[#f8faf6] rounded-2xl border border-[#dce8d5] text-xs text-slate-700 flex items-start gap-2.5">
@@ -501,30 +716,32 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
               </div>
 
               {/* Growth Stage Nutrient Dynamics */}
-              <div className="bg-white rounded-2xl border border-[#d6e4cf] p-4 space-y-3">
-                <h4 className="text-xs font-bold text-[#14492a] uppercase tracking-wider">
-                  Nutrient Dynamics at {stage} Stage
-                </h4>
+              {guidanceResult.stageNutrientDynamics && guidanceResult.stageNutrientDynamics.length > 0 && (
+                <div className="bg-white rounded-2xl border border-[#d6e4cf] p-4 space-y-3">
+                  <h4 className="text-xs font-bold text-[#14492a] uppercase tracking-wider">
+                    Nutrient Dynamics at {stage} Stage
+                  </h4>
 
-                <div className="space-y-2.5">
-                  {guidanceResult.stageNutrientDynamics?.map((item, idx) => (
-                    <div key={idx} className="p-3 bg-[#f7faf5] rounded-xl border border-[#dbe7d5] space-y-1 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-[#133e24] text-xs">{item.nutrient}</span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                          {stage}
-                        </span>
+                  <div className="space-y-2.5">
+                    {guidanceResult.stageNutrientDynamics.map((item, idx) => (
+                      <div key={idx} className="p-3 bg-[#f7faf5] rounded-xl border border-[#dbe7d5] space-y-1 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-[#133e24] text-xs">{item.nutrient}</span>
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            {stage}
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-[11px] leading-relaxed">
+                          <strong>Role:</strong> {item.role}
+                        </p>
+                        <p className="text-emerald-900 text-[11px] leading-relaxed">
+                          <strong>Strategy:</strong> {item.managementAdvice}
+                        </p>
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-relaxed">
-                        <strong>Role:</strong> {item.role}
-                      </p>
-                      <p className="text-emerald-900 text-[11px] leading-relaxed">
-                        <strong>Strategy:</strong> {item.managementAdvice}
-                      </p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Actionable Next Steps */}
               {guidanceResult.actionableNextSteps && guidanceResult.actionableNextSteps.length > 0 && (
@@ -572,7 +789,7 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                 <button
                   type="button"
                   onClick={handleSaveToFarmNotes}
-                  className="flex-1 min-h-[44px] rounded-xl bg-[#14492a] hover:bg-[#0d361e] text-white text-xs font-bold flex items-center justify-center gap-2 transition"
+                  className="flex-1 min-h-[44px] rounded-xl bg-[#14492a] hover:bg-[#0d361e] text-white text-xs font-bold flex items-center justify-center gap-2 transition cursor-pointer"
                 >
                   <BookmarkPlus className="w-4 h-4" />
                   <span>Save Guidance to My Farm</span>
@@ -581,7 +798,7 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
                 <button
                   type="button"
                   onClick={handleReset}
-                  className="min-h-[44px] px-4 rounded-xl bg-white border border-[#d2e2cb] text-slate-700 hover:bg-[#f3f7f0] text-xs font-semibold transition"
+                  className="min-h-[44px] px-4 rounded-xl bg-white border border-[#d2e2cb] text-slate-700 hover:bg-[#f3f7f0] text-xs font-semibold transition cursor-pointer"
                 >
                   Edit Parameters
                 </button>

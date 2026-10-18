@@ -34,6 +34,7 @@ import { storageService } from '../services/storage';
 import { authService } from '../services/authService';
 import { AgrovaLogo } from '../components/AgrovaLogo';
 import { Lock, LogOut, KeyRound } from 'lucide-react';
+import { validatePhoneNumber } from '../utils/phoneValidation';
 
 interface ProfileSettingsScreenProps {
   profile: FarmerProfile;
@@ -102,12 +103,29 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
 
   const handleSaveFarmerProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!phone.trim()) {
+      setSavedFeedback('Contact phone number is mandatory. Please enter your 10-digit Indian mobile number.');
+      setTimeout(() => setSavedFeedback(null), 3500);
+      return;
+    }
+
+    const validatedPhone = validatePhoneNumber(phone);
+    if (!validatedPhone.valid || !validatedPhone.normalized) {
+      setSavedFeedback(validatedPhone.error || 'Please enter a valid 10-digit Indian mobile number (e.g. 9845012345 or +91 98450 12345).');
+      setTimeout(() => setSavedFeedback(null), 3500);
+      return;
+    }
+
+    const cleanPhone = validatedPhone.normalized;
+    setPhone(cleanPhone);
+
     const updated: FarmerProfile = {
       ...profile,
       name: name.trim() || 'Farmer',
       villageOrDistrict: village.trim(),
       state: farmerState.trim(),
-      contactNumber: phone.trim(),
+      contactNumber: cleanPhone,
       preferredAreaUnit: areaUnit,
       preferredWeightUnit: weightUnit,
       preferredTempUnit: tempUnit,
@@ -115,7 +133,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
     };
     storageService.saveProfile(updated);
     if (updated.villageOrDistrict && typeof localStorage !== 'undefined') {
-      localStorage.setItem('agrova_selected_weather_city', updated.villageOrDistrict);
+      localStorage.setItem('agriconnect_selected_weather_city', updated.villageOrDistrict);
     }
     onUpdateProfile(updated);
     if (authService.isAuthenticated()) {
@@ -123,6 +141,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
         name: updated.name,
         preferredLanguage: updated.preferredLanguage,
         farmProfile: updated,
+        phone: cleanPhone,
       });
     }
     setSavedFeedback('Farmer profile & measurement preferences saved!');
@@ -131,6 +150,23 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
 
   const handleSaveBuyerProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!bPhone.trim()) {
+      setSavedFeedback('Contact phone number is mandatory. Please enter your 10-digit Indian mobile number.');
+      setTimeout(() => setSavedFeedback(null), 3500);
+      return;
+    }
+
+    const validatedPhone = validatePhoneNumber(bPhone);
+    if (!validatedPhone.valid || !validatedPhone.normalized) {
+      setSavedFeedback(validatedPhone.error || 'Please enter a valid 10-digit Indian mobile number (e.g. 9448167890 or +91 94481 67890).');
+      setTimeout(() => setSavedFeedback(null), 3500);
+      return;
+    }
+
+    const cleanBPhone = validatedPhone.normalized;
+    setBPhone(cleanBPhone);
+
     const updated: BuyerProfile = {
       ...buyerProfile,
       name: bName.trim() || 'Procurement Buyer',
@@ -138,7 +174,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
       businessType: bType,
       location: bLocation.trim(),
       state: bState.trim(),
-      contactNumber: bPhone.trim(),
+      contactNumber: cleanBPhone,
       email: bEmail.trim(),
       preferredLanguage: language,
     };
@@ -149,6 +185,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
         name: updated.name,
         preferredLanguage: updated.preferredLanguage,
         buyerProfile: updated,
+        phone: cleanBPhone,
       });
     }
     setSavedFeedback('Buyer procurement profile saved successfully!');
@@ -185,6 +222,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
 
   const handleSignOut = async () => {
     await authService.logout();
+    storageService.clearUserSessionData();
     if (onSignOut) {
       onSignOut();
     }
@@ -200,6 +238,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
     setIsDeletingAccount(false);
     if (res.success) {
       setShowDeleteConfirm(false);
+      storageService.clearUserSessionData();
       if (onSignOut) {
         onSignOut();
       }
@@ -222,7 +261,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `agrova_complete_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `agriconnect_complete_backup_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -307,7 +346,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
               </div>
               <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                 <Mail className="w-3 h-3 text-slate-400" />
-                <span>{currentUser ? currentUser.email : (role === 'farmer' ? 'agrova.farmer.test@example.com' : 'agrova.buyer.test@example.com')}</span>
+                <span>{currentUser ? currentUser.email : (role === 'farmer' ? 'agriconnect.farmer.test@example.com' : 'agriconnect.buyer.test@example.com')}</span>
               </p>
             </div>
           </div>
@@ -315,7 +354,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
           <button
             onClick={handleSignOut}
             className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-            title="Sign out of AGROVA account"
+            title="Sign out of AgriConnect account"
           >
             <LogOut className="w-3.5 h-3.5 text-slate-500" />
             <span>{t.signOutBtn || 'Sign Out'}</span>
@@ -893,7 +932,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
             </div>
             <h3 className="text-sm font-bold text-slate-900">Delete Account Permanently?</h3>
             <p className="text-xs text-slate-600 leading-relaxed">
-              This action cannot be undone. Enter your password to permanently delete your AGROVA account credentials.
+              This action cannot be undone. Enter your password to permanently delete your AgriConnect account credentials.
             </p>
             <input
               type="password"

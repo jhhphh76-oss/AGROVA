@@ -234,7 +234,7 @@ const createLangDict = (overrides: any): TranslationDictionary => ({
 });
 
 export const TRANSLATIONS_EN: TranslationDictionary = {
-  appName: 'AGROVA',
+  appName: 'AgriConnect',
   tagline: 'Scan. Understand. Grow. Earn.',
   subTagline: 'Smart Farming. Fair Earnings.',
     tabs: {
@@ -333,7 +333,7 @@ export const TRANSLATIONS_EN: TranslationDictionary = {
     auth: {
       signInTab: 'Sign In',
       createAccountTab: 'Create Account',
-      welcomeTitle: 'Welcome to AGROVA',
+      welcomeTitle: 'Welcome to AgriConnect',
       welcomeSubtitle: 'Smart Farming. Direct Sourcing. Fair Earnings.',
       chooseRole: 'Select your account type',
       farmerRole: 'I am a Farmer / Grower',
@@ -343,7 +343,7 @@ export const TRANSLATIONS_EN: TranslationDictionary = {
       fullNameLabel: 'Full Display Name',
       fullNamePlaceholder: 'e.g. Ananya Patil',
       emailLabel: 'Email Address',
-      emailPlaceholder: 'agrova.farmer.test@example.com',
+      emailPlaceholder: 'agriconnect.farmer.test@example.com',
       passwordLabel: 'Password',
       confirmPasswordLabel: 'Confirm Password',
       districtLabel: 'Village / District',
@@ -352,7 +352,7 @@ export const TRANSLATIONS_EN: TranslationDictionary = {
       businessNameLabel: 'Business / Company Name',
       businessNamePlaceholder: 'Vijayapura Commodity Traders',
       businessTypeLabel: 'Business Category',
-      signInBtn: 'Sign In to AGROVA',
+      signInBtn: 'Sign In to AgriConnect',
       registerBtn: 'Create Account & Continue',
       forgotPasswordLink: 'Forgot password?',
       forgotPasswordTitle: 'Reset Your Password',
@@ -370,7 +370,7 @@ export const TRANSLATIONS_EN: TranslationDictionary = {
       errorPassLength: 'Password must be at least 6 characters.',
       errorInvalidEmail: 'Please enter a valid email address.',
       errorNameRequired: 'Please enter your display name.',
-      successRegistered: 'Account created successfully! Welcome to AGROVA.',
+      successRegistered: 'Account created successfully! Welcome to AgriConnect.',
       successLoggedIn: 'Signed in successfully!',
       successPassReset: 'Password reset successfully. You can now sign in.',
     },
@@ -442,7 +442,7 @@ export const TRANSLATIONS_EN: TranslationDictionary = {
 export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
   en: TRANSLATIONS_EN,
   hi: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'जांचें। समझें। उगाएं। कमाएं।',
     subTagline: 'स्मार्ट खेती। सही कमाई।',
     tabs: {
@@ -547,7 +547,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   }),
   pa: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'ਜਾਂਚੋ। ਸਮਝੋ। ਉਗਾਓ। ਕਮਾਓ।',
     subTagline: 'ਸਮਾਰਟ ਖੇਤੀ। ਚੰਗੀ ਕਮਾਈ।',
     tabs: {
@@ -652,7 +652,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   }),
   mr: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'तपासा. समजून घ्या. पिकवा. कमवा.',
     subTagline: 'स्मार्ट शेती. योग्य कमाई.',
     tabs: {
@@ -757,7 +757,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   }),
   te: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'స్కాన్ చేయండి. గ్రహించండి. పండించండి. సంపాదించండి.',
     subTagline: 'స్మార్ట్ వ్యవసాయం. సరసమైన ఆదాయం.',
     tabs: {
@@ -862,7 +862,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   }),
   ta: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'ஸ்கேன் செய். புரிந்துகொள். பயிரிடு. சம்பாதி.',
     subTagline: 'ஸ்மார்ட் விவசாயம். நியாயமான வருமானம்.',
     tabs: {
@@ -967,7 +967,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   }),
   kn: {
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'ಸ್ಕ್ಯಾನ್ ಮಾಡಿ. ಅರ್ಥಮಾಡಿಕೊಳ್ಳಿ. ಬೆಳೆಯಿರಿ. ಗಳಿಸಿ.',
     subTagline: 'ಸ್ಮಾರ್ಟ್ ಕೃಷಿ. ನ್ಯಾಯಯುತ ಆದಾಯ.',
     tabs: {
@@ -982,7 +982,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     auth: {
       signInTab: 'ಸೈನ್ ಇನ್',
       createAccountTab: 'ಹೊಸ ಖಾತೆ ತೆರೆಯಿರಿ',
-      welcomeTitle: 'ಅಗ್ರೋವಾಗೆ ಸುಸ್ವಾಗತ',
+      welcomeTitle: 'ಅಗ್ರಿಕನೆಕ್ಟ್‌ಗೆ ಸುಸ್ವಾಗತ',
       welcomeSubtitle: 'ಸ್ಮಾರ್ಟ್ ಕೃಷಿ. ನೇರ ಮಾರುಕಟ್ಟೆ. ನ್ಯಾಯಯುತ ಆದಾಯ.',
       chooseRole: 'ನಿಮ್ಮ ಖಾತೆಯ ಪ್ರಕಾರವನ್ನು ಆಯ್ಕೆಮಾಡಿ',
       farmerRole: 'ನಾನು ರೈತ / ಬೆಳೆಗಾರ',
@@ -992,7 +992,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       fullNameLabel: 'ಪೂರ್ಣ ಹೆಸರು',
       fullNamePlaceholder: 'ಉದಾ: ಅನನ್ಯಾ ಪಾಟೀಲ್',
       emailLabel: 'ಇಮೇಲ್ ವಿಳಾಸ',
-      emailPlaceholder: 'agrova.farmer.test@example.com',
+      emailPlaceholder: 'agriconnect.farmer.test@example.com',
       passwordLabel: 'ಪಾಸ್‌ವರ್ಡ್',
       confirmPasswordLabel: 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ',
       districtLabel: 'ಗ್ರಾಮ / ತಾಲೂಕು / ಜಿಲ್ಲೆ',
@@ -1171,7 +1171,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   },
   gu: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'તપાસો. સમજો. ઉગાડો. કમાઓ.',
     subTagline: 'સ્માર્ટ ખેતી. વાજબી કમાણી.',
     tabs: {
@@ -1276,7 +1276,7 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
     },
   }),
   bn: createLangDict({
-    appName: 'AGROVA',
+    appName: 'AgriConnect',
     tagline: 'স্ক্যান করুন। বুঝুন। ফলান। আয় করুন।',
     subTagline: 'স্মার্ট কৃষি। ন্যায্য আয়।',
     tabs: {

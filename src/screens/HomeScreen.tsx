@@ -122,7 +122,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <div className="space-y-0.5">
           {cropHealth ? (
             <span>
-              <strong>Foliage Health Assessment:</strong> {cropHealth.score}% (Grade {cropHealth.grade}) based on {cropHealth.validScansCount} verified leaf scan{cropHealth.validScansCount > 1 ? 's' : ''}. Thresholds: 95–100%: A+, 85–94%: A, 70–84%: B, 50–69%: C, &lt;50%: D (AGROVA proposed product thresholds, not an established agricultural standard). Foliage observations and soil tests are strictly separated.
+              <strong>Foliage Health Assessment:</strong> {cropHealth.score}% (Grade {cropHealth.grade}) based on {cropHealth.validScansCount} verified leaf scan{cropHealth.validScansCount > 1 ? 's' : ''}. Thresholds: 95–100%: A+, 85–94%: A, 70–84%: B, 50–69%: C, &lt;50%: D (AgriConnect proposed product thresholds, not an established agricultural standard). Foliage observations and soil tests are strictly separated.
             </span>
           ) : (
             <span>

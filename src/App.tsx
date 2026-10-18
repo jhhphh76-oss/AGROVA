@@ -126,8 +126,18 @@ export default function App() {
     try {
       const freshListings = await storageService.fetchMarketListings();
       setMarketListings(freshListings);
-      const freshPlantScans = await storageService.fetchPlantScans();
-      setPlantScans(freshPlantScans);
+
+      if (role === 'farmer' && authService.isAuthenticated()) {
+        const freshCrops = await storageService.fetchCrops();
+        setCrops(freshCrops);
+        const freshObservations = await storageService.fetchObservations();
+        setObservations(freshObservations);
+        const freshSoilScans = await storageService.fetchSoilScans();
+        setSoilScans(freshSoilScans);
+        const freshPlantScans = await storageService.fetchPlantScans();
+        setPlantScans(freshPlantScans);
+      }
+
       const effectiveUserId = currentUser?.id || (role === 'farmer' ? 'farmer-user-1' : (bProf.id || 'buyer-user-1'));
       const freshEnquiries = await storageService.fetchEnquiries(
         role,
@@ -140,6 +150,14 @@ export default function App() {
   };
 
   const handleAuthSuccess = (user: AuthUser, userProfile: FarmerProfile | BuyerProfile) => {
+    // Clear previous in-memory session data to guarantee account isolation
+    setCrops([]);
+    setObservations([]);
+    setSoilScans([]);
+    setPlantScans([]);
+    setAdvisorMessages([]);
+    setEnquiries([]);
+
     setCurrentUser(user);
     setRole(user.role);
     storageService.setUserRole(user.role);
@@ -162,8 +180,18 @@ export default function App() {
     loadAllData();
   };
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    await authService.logout();
+    storageService.clearUserSessionData();
     setCurrentUser(null);
+    setCrops([]);
+    setObservations([]);
+    setSoilScans([]);
+    setPlantScans([]);
+    setAdvisorMessages([]);
+    setEnquiries([]);
+    setProfile(storageService.getProfile());
+    setBuyerProfile(storageService.getBuyerProfile());
     setIsAuthOpen(true);
     setActiveTab('home');
   };

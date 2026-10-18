@@ -1,7 +1,9 @@
 import { AuthUser, AuthSession, FarmerProfile, BuyerProfile, UserRole, SupportedLanguage } from '../types';
 
-const TOKEN_KEY = 'agrova_auth_token_v1';
-const USER_KEY = 'agrova_auth_user_v1';
+const TOKEN_KEY = 'agriconnect_auth_token_v1';
+const LEGACY_TOKEN_KEY = 'agrova_auth_token_v1';
+const USER_KEY = 'agriconnect_auth_user_v1';
+const LEGACY_USER_KEY = 'agrova_auth_user_v1';
 
 type AuthListener = (user: AuthUser | null) => void;
 
@@ -15,8 +17,12 @@ class AuthService {
   constructor() {
     if (typeof window !== 'undefined') {
       try {
-        this.token = localStorage.getItem(TOKEN_KEY) || sessionStorage.getItem(TOKEN_KEY);
-        const storedUser = localStorage.getItem(USER_KEY);
+        this.token =
+          localStorage.getItem(TOKEN_KEY) ||
+          sessionStorage.getItem(TOKEN_KEY) ||
+          localStorage.getItem(LEGACY_TOKEN_KEY);
+        const storedUser =
+          localStorage.getItem(USER_KEY) || localStorage.getItem(LEGACY_USER_KEY);
         if (storedUser) {
           this.currentUser = JSON.parse(storedUser);
         }
@@ -102,6 +108,53 @@ class AuthService {
     return { user: this.currentUser, profile: this.currentProfile };
   }
 
+  private async parseResponseData(res: Response, fallbackError: string): Promise<{ ok: boolean; data: any; errorMessage?: string }> {
+    const contentType = res.headers.get('content-type') || '';
+    let parsed: any = null;
+
+    if (contentType.includes('application/json')) {
+      try {
+        parsed = await res.json();
+      } catch (err) {
+        console.warn('Failed to parse JSON despite application/json Content-Type:', err);
+      }
+    } else {
+      try {
+        const rawText = await res.text();
+        console.warn('Non-JSON response received from server:', rawText.slice(0, 150));
+      } catch {}
+    }
+
+    if (!parsed) {
+      return {
+        ok: false,
+        data: null,
+        errorMessage: res.status >= 500
+          ? 'Server temporarily unavailable. Please try again shortly.'
+          : fallbackError,
+      };
+    }
+
+    let errorMessage: string | undefined = undefined;
+    if (!parsed.success) {
+      if (typeof parsed.error === 'string') {
+        errorMessage = parsed.error;
+      } else if (parsed.error && typeof parsed.error.message === 'string') {
+        errorMessage = parsed.error.message;
+      } else if (typeof parsed.message === 'string') {
+        errorMessage = parsed.message;
+      } else {
+        errorMessage = fallbackError;
+      }
+    }
+
+    return {
+      ok: res.ok && parsed.success,
+      data: parsed,
+      errorMessage,
+    };
+  }
+
   public async register(payload: {
     name: string;
     email: string;
@@ -123,12 +176,12 @@ class AuthService {
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        this.setSession(data.token, data.user, data.profile);
-        return { success: true, user: data.user, profile: data.profile };
+      const result = await this.parseResponseData(res, 'Registration failed. Please check the submitted information.');
+      if (result.ok && result.data?.success) {
+        this.setSession(result.data.token, result.data.user, result.data.profile);
+        return { success: true, user: result.data.user, profile: result.data.profile };
       }
-      return { success: false, error: data.error || 'Registration failed' };
+      return { success: false, error: result.errorMessage || 'Registration failed' };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error during registration.' };
     }
@@ -147,12 +200,12 @@ class AuthService {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
-      if (res.ok && data.success) {
-        this.setSession(data.token, data.user, data.profile);
-        return { success: true, user: data.user, profile: data.profile };
+      const result = await this.parseResponseData(res, 'Invalid credentials');
+      if (result.ok && result.data?.success) {
+        this.setSession(result.data.token, result.data.user, result.data.profile);
+        return { success: true, user: result.data.user, profile: result.data.profile };
       }
-      return { success: false, error: data.error || 'Invalid credentials' };
+      return { success: false, error: result.errorMessage || 'Invalid credentials' };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error during sign in.' };
     }
@@ -322,6 +375,9 @@ class AuthService {
       localStorage.removeItem(TOKEN_KEY);
       sessionStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+      sessionStorage.removeItem(LEGACY_TOKEN_KEY);
+      localStorage.removeItem(LEGACY_USER_KEY);
     }
     this.notify();
   }

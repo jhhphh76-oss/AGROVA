@@ -571,7 +571,7 @@ export const BuyerBrowseCropsScreen: React.FC<BuyerBrowseCropsScreenProps> = ({
               <div className="bg-[#f0f6eb] p-3 rounded-xl border border-[#d5e6cb] text-[11px] text-[#36593e] flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
                 <span>
-                  Consent Notice: Your contact phone and procurement interest will be shared directly with the grower ({activeListing.sellerName}). AGROVA does not process financial escrow or automated bank debits.
+                  Consent Notice: Your contact phone and procurement interest will be shared directly with the grower ({activeListing.sellerName}). AgriConnect does not process financial escrow or automated bank debits.
                 </span>
               </div>
 

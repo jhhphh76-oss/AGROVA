@@ -4,7 +4,6 @@ import {
   Camera, 
   AlertCircle, 
   CheckCircle2, 
-  RotateCcw,
   Sparkles,
   Info,
   Trash2,
@@ -41,7 +40,6 @@ import { TRANSLATIONS } from '../constants/translations';
 import { storageService } from '../services/storage';
 import { soilScanService, ImageProcessResult as SoilImageResult } from '../services/soilScanService';
 import { plantScanService, ImageProcessResult as PlantImageResult } from '../services/plantScanService';
-import { CameraCaptureModal } from '../components/CameraCaptureModal';
 import { AiAdvisorView } from '../components/AiAdvisorView';
 
 interface SoilScanScreenProps {
@@ -69,9 +67,6 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
 
   // History sub-tab: 'plant' | 'soil'
   const [historySubTab, setHistorySubTab] = useState<'plant' | 'soil'>('plant');
-
-  // Camera modal state
-  const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
 
   // Field & Crop context selection
   const defaultField = crops.length > 0 ? crops[0].fieldName : 'Plot 1 (Main Field)';
@@ -385,14 +380,6 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
 
   return (
     <div className="space-y-4 sm:space-y-5 pb-12 animate-in fade-in duration-150">
-      {/* Live Camera Viewfinder Modal: strictly real camera */}
-      <CameraCaptureModal
-        isOpen={isCameraModalOpen}
-        onClose={() => setIsCameraModalOpen(false)}
-        onPhotoCaptured={handlePhotoCaptured}
-        targetSubject={scanMode}
-      />
-
       {/* Screen Header Bar: Visible Heading "Scan" */}
       <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#dce8d5] shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -616,27 +603,19 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                 className="hidden"
               />
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 max-w-sm mx-auto">
+              <div className="flex items-center justify-center max-w-sm mx-auto">
                 <button
                   type="button"
                   onClick={() => nativeCameraInputRef.current?.click()}
-                  className="w-full sm:w-auto px-6 py-3.5 rounded-2xl bg-[#14492a] hover:bg-[#0f3c21] active:scale-95 text-white font-bold text-xs shadow-md shadow-emerald-950/20 transition inline-flex items-center justify-center gap-2"
+                  className="w-full py-4 px-6 rounded-2xl bg-[#14492a] hover:bg-[#0f3c21] active:scale-95 text-white font-bold text-sm shadow-md shadow-emerald-950/20 transition inline-flex items-center justify-center gap-2.5 cursor-pointer"
                 >
-                  <Camera className="w-4 h-4 text-emerald-300" />
-                  <span>Capture with Phone Camera</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsCameraModalOpen(true)}
-                  className="w-full sm:w-auto px-4 py-3 rounded-2xl bg-[#edf5eb] hover:bg-[#e1edd8] text-[#14492a] text-xs font-semibold transition inline-flex items-center justify-center gap-1.5"
-                >
-                  <span>Open Viewfinder</span>
+                  <Camera className="w-5 h-5 text-emerald-300 shrink-0" />
+                  <span>Launch Phone Camera App</span>
                 </button>
               </div>
 
-              <div className="pt-2 text-[11px] text-slate-400">
-                Direct camera capture only • No fabricated results • Image analyzed on secure server
+              <div className="pt-2 text-[11px] text-slate-500">
+                Direct phone camera capture • Real photo verification • Analyzed on secure server
               </div>
             </div>
           )}
@@ -656,31 +635,16 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      if (nativeCameraInputRef.current) {
-                        nativeCameraInputRef.current.click();
-                      } else {
-                        setIsCameraModalOpen(true);
-                      }
-                    }}
-                    className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition flex items-center gap-1"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                    <span>Retake</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
                       setCapturedPlantImage(null);
                       setCapturedSoilImage(null);
                       setPlantAnalysisResult(null);
                       setSoilAnalysisResult(null);
                       setImageError(null);
                     }}
-                    className="text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 transition flex items-center gap-1"
+                    className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 transition flex items-center gap-1.5 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
-                    <span>Cancel</span>
+                    <span>Remove Photo</span>
                   </button>
                 </div>
               </div>
@@ -728,9 +692,9 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                   <button
                     type="button"
                     onClick={scanMode === 'plant' ? handleRunPlantAnalysis : handleRunSoilAnalysis}
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition"
+                    className="px-3 py-1.5 bg-red-600 text-white rounded-xl text-xs font-bold hover:bg-red-700 transition cursor-pointer"
                   >
-                    Retry Analysis
+                    Try Analysis Again
                   </button>
                 </div>
               )}
@@ -753,11 +717,15 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                   </p>
                   <button
                     type="button"
-                    onClick={() => setIsCameraModalOpen(true)}
-                    className="mt-2 px-3.5 py-2 rounded-xl bg-amber-700 text-white text-xs font-bold hover:bg-amber-800 transition flex items-center gap-1.5"
+                    onClick={() => {
+                      setCapturedPlantImage(null);
+                      setPlantAnalysisResult(null);
+                      setImageError(null);
+                    }}
+                    className="mt-2 px-3.5 py-2 rounded-xl bg-amber-700 text-white text-xs font-bold hover:bg-amber-800 transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Retake Photo</span>
+                    <X className="w-3.5 h-3.5" />
+                    <span>Clear and Take New Scan</span>
                   </button>
                 </div>
               )}
@@ -965,11 +933,15 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                   </p>
                   <button
                     type="button"
-                    onClick={() => setIsCameraModalOpen(true)}
-                    className="mt-2 px-3.5 py-2 rounded-xl bg-amber-700 text-white text-xs font-bold hover:bg-amber-800 transition flex items-center gap-1.5"
+                    onClick={() => {
+                      setCapturedSoilImage(null);
+                      setSoilAnalysisResult(null);
+                      setImageError(null);
+                    }}
+                    className="mt-2 px-3.5 py-2 rounded-xl bg-amber-700 text-white text-xs font-bold hover:bg-amber-800 transition flex items-center gap-1.5 cursor-pointer"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Retake Photo</span>
+                    <X className="w-3.5 h-3.5" />
+                    <span>Clear and Take New Scan</span>
                   </button>
                 </div>
               )}

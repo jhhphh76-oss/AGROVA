@@ -176,7 +176,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <h3 className="text-sm font-bold text-[#144225] font-display truncate">
-                AGROVA AI Advisor
+                AgriConnect AI Advisor
               </h3>
               <span className="px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
                 Online

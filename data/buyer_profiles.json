@@ -16,5 +16,23 @@
       "Vegetables",
       "Oilseeds"
     ]
+  },
+  "usr-1792142185361-ca5a1e16": {
+    "id": "usr-1792142185361-ca5a1e16",
+    "userId": "usr-1792142185361-ca5a1e16",
+    "name": "Yes",
+    "businessName": "Bhav",
+    "businessType": "Wholesale Trader",
+    "location": "Vijayapura",
+    "state": "Karnataka",
+    "contactNumber": "",
+    "email": "ohh@gmail.com",
+    "preferredLanguage": "en",
+    "preferredCategories": [
+      "Grains & Cereals",
+      "Pulses",
+      "Vegetables",
+      "Oilseeds"
+    ]
   }
 }

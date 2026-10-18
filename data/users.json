@@ -18,5 +18,45 @@
     "salt": "a8b20bc2ad3ebc9dad06fa604c5ab9b6",
     "createdAt": "2026-10-12T09:26:13.066Z",
     "preferredLanguage": "kn"
+  },
+  {
+    "id": "usr-1792062144088-223d9985",
+    "name": "Anil Rao",
+    "email": "anil.rao.test@agrofarm.in",
+    "role": "farmer",
+    "passwordHash": "f80ee7a2b51fc0283a0e32502f84cfe6fcd80c12506eeb2d6fb0a2fc6be52cca897b2e248ee9fd789d21a00ef217b89860de96a2d370bf49940831e051206375",
+    "salt": "b82a659e7a1931e9c83d8ba17a0ff182",
+    "createdAt": "2026-10-15T11:02:24.088Z",
+    "preferredLanguage": "en"
+  },
+  {
+    "id": "usr-1792137356665-ba9bbdfb",
+    "name": "Ramesh Patel",
+    "email": "farmer@agrova.in",
+    "role": "farmer",
+    "passwordHash": "1c737616fc3c691c29fdc28ea9b9ad36910517dcc4b34b474f9a28577856e27415e76ec45c828de8c635af4e531c2cf0e01a1fff23fb0f495056235abd536be1",
+    "salt": "76888dfff8e85561b928423c5bf0b13b",
+    "createdAt": "2026-10-16T07:55:56.665Z",
+    "preferredLanguage": "en"
+  },
+  {
+    "id": "usr-1792138080982-55e0a52a",
+    "name": "agagag",
+    "email": "yenos@gmail.com",
+    "role": "farmer",
+    "passwordHash": "206b309bd7a604ab1043e3f4970984bd03677c15649a3554a33406721ec8ef6842f38ef37f51c44379d4a174b3fb292860151d1d5ea5843213e8d6aab68b5f06",
+    "salt": "25a904d952438631e46d3ce0a924f1e8",
+    "createdAt": "2026-10-16T08:08:00.982Z",
+    "preferredLanguage": "en"
+  },
+  {
+    "id": "usr-1792142185361-ca5a1e16",
+    "name": "Yes",
+    "email": "ohh@gmail.com",
+    "role": "buyer",
+    "passwordHash": "0a291208f8f17f9891a18416c6354e179e7cb0f8d203c6227f212cf95893d8e66a34480423502694dae6564027e48892ba9c23d419035086ce6d163ced35f483",
+    "salt": "0ae5dc746876f4fa7d5d318a02155bce",
+    "createdAt": "2026-10-16T09:16:25.361Z",
+    "preferredLanguage": "en"
   }
 ]

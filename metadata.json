@@ -1,5 +1,5 @@
 {
-  "name": "AGROVA — AI-Powered Agriculture Platform",
+  "name": "AgriConnect — Agriculture Platform",
   "description": "Mobile-friendly agriculture platform for soil scanning, farm management, crop problems, fertilizer guidance, and produce marketplace.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

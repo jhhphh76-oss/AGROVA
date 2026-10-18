@@ -23,10 +23,10 @@ export const RoleOnboardingModal: React.FC<RoleOnboardingModalProps> = ({
             <AgrovaLogo size="lg" />
           </div>
           <h2 className="text-xl sm:text-2xl font-black text-[#144225] font-display tracking-tight">
-            Welcome to AGROVA
+            Welcome to AgriConnect
           </h2>
           <p className="text-xs sm:text-sm text-[#4b6350] mt-1.5 max-w-sm mx-auto">
-            Please choose how you will be using AGROVA. This configures your personalized navigation, dashboard, and tools.
+            Please choose how you will be using AgriConnect. This configures your personalized navigation, dashboard, and tools.
           </p>
         </div>
 

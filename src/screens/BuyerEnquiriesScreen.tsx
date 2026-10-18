@@ -228,7 +228,7 @@ export const BuyerEnquiriesScreen: React.FC<BuyerEnquiriesScreenProps> = ({
           <span>Procurement Communication Protocol</span>
         </div>
         <p className="text-[11px] leading-relaxed text-[#416149]">
-          Enquiry records serve as direct trade leads sent to the grower. Once the farmer reviews your offer in their dashboard, they will contact you directly on your phone to finalize lot inspection, quality weighing, and APMC settlement. AGROVA does not charge broker commissions or hold payment escrow.
+          Enquiry records serve as direct trade leads sent to the grower. Once the farmer reviews your offer in their dashboard, they will contact you directly on your phone to finalize lot inspection, quality weighing, and APMC settlement. AgriConnect does not charge broker commissions or hold payment escrow.
         </p>
       </div>
     </div>

@@ -270,6 +270,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  phone?: string;
   createdAt: string;
   preferredLanguage: SupportedLanguage;
 }

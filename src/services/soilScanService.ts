@@ -129,21 +129,31 @@ export const soilScanService = {
 
       clearTimeout(timeoutId);
 
-      const data = await response.json();
+      let data: any = null;
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        try {
+          data = await response.json();
+        } catch (e) {
+          console.warn('Failed to parse soil analysis JSON response:', e);
+        }
+      }
 
       if (!response.ok) {
+        const errMessage = data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || `Server returned error (${response.status})`;
         return {
           success: false,
-          error: data.error || `Server returned error (${response.status})`,
-          aiUnavailable: Boolean(data.aiUnavailable),
+          error: errMessage,
+          aiUnavailable: Boolean(data?.aiUnavailable || response.status === 503),
         };
       }
 
-      if (!data.success || !data.analysis) {
+      if (!data?.success || !data?.analysis) {
+        const errMessage = data?.error?.message || (typeof data?.error === 'string' ? data.error : null) || 'Invalid analysis response structure received from server.';
         return {
           success: false,
-          error: data.error || 'Invalid analysis response structure received from server.',
-          aiUnavailable: Boolean(data.aiUnavailable),
+          error: errMessage,
+          aiUnavailable: Boolean(data?.aiUnavailable),
         };
       }
 

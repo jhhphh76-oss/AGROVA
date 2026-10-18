@@ -13,7 +13,7 @@ import {
 } from '../types';
 import { authService } from './authService';
 
-function getRequestHeaders(role?: UserRole, userId?: string): Record<string, string> {
+function getRequestHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -21,28 +21,14 @@ function getRequestHeaders(role?: UserRole, userId?: string): Record<string, str
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
-  const user = authService.getUser();
-  const effectiveRole = user?.role || role || (storageService.getUserRole() || 'farmer');
-  const effectiveUserId = user?.id || userId || (effectiveRole === 'farmer' ? 'farmer-user-1' : 'buyer-user-1');
-  headers['x-user-role'] = effectiveRole;
-  headers['x-user-id'] = effectiveUserId;
   return headers;
 }
 
 const STORAGE_KEYS = {
-  USER_ROLE: 'agrova_user_role_v1',
-  HAS_ONBOARDED: 'agrova_has_onboarded_v1',
-  PROFILE: 'agrova_profile_v1',
-  BUYER_PROFILE: 'agrova_buyer_profile_v1',
-  CROPS: 'agrova_crops_v1',
-  OBSERVATIONS: 'agrova_observations_v1',
-  SOIL_SCANS: 'agrova_soil_scans_v1',
-  PLANT_SCANS: 'agrova_plant_scans_v1',
-  ADVISOR_MESSAGES: 'agrova_advisor_messages_v1',
-  CROP_INQUIRIES: 'agrova_crop_inquiries_v1',
-  MARKET_LISTINGS: 'agrova_market_listings_v1',
-  ENQUIRIES: 'agrova_enquiries_v1',
-  INITIALIZED: 'agrova_initialized_v1',
+  USER_ROLE: 'agriconnect_user_role_v1',
+  HAS_ONBOARDED: 'agriconnect_has_onboarded_v1',
+  MARKET_LISTINGS: 'agriconnect_market_listings_v1',
+  INITIALIZED: 'agriconnect_initialized_v1',
 };
 
 const DEFAULT_PROFILE: FarmerProfile = {
@@ -199,23 +185,27 @@ export const DEFAULT_PLANT_SCANS: PlantScanRecord[] = [
       cropTypeIdentified: 'Wheat (Triticum aestivum)',
       confidenceNote: 'High confidence based on leaf blade venation and tillering stage',
       visibleObservations: {
+        plantPartsVisible: ['Leaves', 'Canopy'],
         foliarCondition: 'Healthy green leaf blade, robust cellular turgor, no chlorosis or necrosis',
         overallVigor: 'Excellent',
         pestOrPathogenSigns: 'None observed',
-        canopyUniformity: 'Uniform dense canopy',
       },
       possibleExplanations: [
         {
           cause: 'Healthy crop vegetative vigor',
-          likelihood: 'High',
-          reasoning: 'Uniform leaf color and lack of chlorosis indicate balanced nitrogen and moisture.',
+          likelihood: 'Possible',
+          explanation: 'Uniform leaf color and lack of chlorosis indicate balanced nitrogen and moisture.',
+          uncertaintyNote: 'Visual assessment indicates healthy vegetative canopy. Soil testing needed for exact nutrient levels.',
         },
       ],
-      suggestedNextSteps: [
+      followUpQuestions: ['Has standard basal fertilizer been applied?'],
+      practicalNextSteps: [
         'Maintain scheduled irrigation interval',
         'Inspect lower crown leaves in 7 days for early aphid presence',
       ],
-      agronomicGuidance: 'Current foliar vigor is optimal (100% score, Grade A+). Follow local university Package of Practices for timely top-dressing.',
+      preventionGuidance: ['Follow local university Package of Practices for timely top-dressing.'],
+      scientificCaution: 'Visual observation only, not a laboratory pathology report.',
+      analyzedAt: '2026-10-10T10:00:00.000Z',
     },
     isAiAnalyzed: true,
     farmContext: {
@@ -250,7 +240,7 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
       score: 96,
       grade: 'A+',
       evaluatedAt: '2026-10-10',
-      notes: 'AGROVA scan assessment: 96% (Grade A+) from 3 verified leaf scans. Robust canopy vigor, zero foliar necrosis.',
+      notes: 'AgriConnect scan assessment: 96% (Grade A+) from 3 verified leaf scans. Robust canopy vigor, zero foliar necrosis.',
     },
   },
   {
@@ -275,7 +265,7 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
       score: 88,
       grade: 'A',
       evaluatedAt: '2026-10-09',
-      notes: 'AGROVA scan assessment: 88% (Grade A) from 2 verified leaf scans. Mild thrip pressure noted, foliage clear.',
+      notes: 'AgriConnect scan assessment: 88% (Grade A) from 2 verified leaf scans. Mild thrip pressure noted, foliage clear.',
     },
   },
   {
@@ -300,7 +290,7 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
       score: 82,
       grade: 'B',
       evaluatedAt: '2026-10-08',
-      notes: 'AGROVA scan assessment: 82% (Grade B) from 2 verified leaf scans. Moderate leaf yellowing during ripening.',
+      notes: 'AgriConnect scan assessment: 82% (Grade B) from 2 verified leaf scans. Moderate leaf yellowing during ripening.',
     },
   },
   {
@@ -345,38 +335,67 @@ const DEFAULT_MARKET_LISTINGS: MarketListing[] = [
       score: 95,
       grade: 'A+',
       evaluatedAt: '2026-10-06',
-      notes: 'AGROVA scan assessment: 95% (Grade A+) from 4 verified leaf scans. Vigorous canopy, zero defoliation.',
+      notes: 'AgriConnect scan assessment: 95% (Grade A+) from 4 verified leaf scans. Vigorous canopy, zero defoliation.',
     },
   },
 ];
 
 export const storageService = {
+  getUserKey(baseKey: string): string {
+    const user = authService.getUser();
+    if (user && user.id) {
+      return `agriconnect_${baseKey}_${user.id}`;
+    }
+    return `agriconnect_${baseKey}_guest`;
+  },
+
+  clearUserSessionData(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const user = authService.getUser();
+      if (user && user.id) {
+        [
+          `agriconnect_crops_${user.id}`,
+          `agriconnect_observations_${user.id}`,
+          `agriconnect_soil_scans_${user.id}`,
+          `agriconnect_plant_scans_${user.id}`,
+          `agriconnect_advisor_messages_${user.id}`,
+          `agriconnect_enquiries_${user.id}`,
+          `agriconnect_profile_${user.id}`,
+          `agriconnect_buyer_profile_${user.id}`,
+        ].forEach((k) => localStorage.removeItem(k));
+      }
+      [
+        'agrova_crops_v1',
+        'agrova_observations_v1',
+        'agrova_soil_scans_v1',
+        'agrova_plant_scans_v1',
+        'agrova_advisor_messages_v1',
+        'agrova_enquiries_v1',
+        'agrova_profile_v1',
+        'agrova_buyer_profile_v1',
+      ].forEach((k) => localStorage.removeItem(k));
+    } catch (e) {
+      console.warn('Failed to clear user session data', e);
+    }
+  },
+
   initializeDefaults(): void {
     if (typeof window === 'undefined') return;
     const isInitialized = localStorage.getItem(STORAGE_KEYS.INITIALIZED);
     if (!isInitialized) {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(DEFAULT_PROFILE));
-      localStorage.setItem(STORAGE_KEYS.BUYER_PROFILE, JSON.stringify(DEFAULT_BUYER_PROFILE));
-      localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(DEFAULT_CROPS));
-      localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(DEFAULT_OBSERVATIONS));
-      localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(DEFAULT_SOIL_SCANS));
-      localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(DEFAULT_PLANT_SCANS));
       localStorage.setItem(STORAGE_KEYS.MARKET_LISTINGS, JSON.stringify(DEFAULT_MARKET_LISTINGS));
-      localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify([]));
-      localStorage.setItem(STORAGE_KEYS.CROP_INQUIRIES, JSON.stringify([]));
       localStorage.setItem(STORAGE_KEYS.INITIALIZED, 'true');
-    } else {
-      if (!localStorage.getItem(STORAGE_KEYS.PLANT_SCANS)) {
-        localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(DEFAULT_PLANT_SCANS));
-      }
     }
   },
 
   getUserRole(): UserRole {
     try {
+      const user = authService.getUser();
+      if (user?.role) return user.role;
       const role = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
       if (role === 'buyer' || role === 'farmer') return role;
-      return 'farmer'; // default role
+      return 'farmer';
     } catch {
       return 'farmer';
     }
@@ -409,8 +428,21 @@ export const storageService = {
 
   getBuyerProfile(): BuyerProfile {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.BUYER_PROFILE);
-      return data ? JSON.parse(data) : DEFAULT_BUYER_PROFILE;
+      const user = authService.getUser();
+      const data = localStorage.getItem(this.getUserKey('buyer_profile'));
+      if (data) return JSON.parse(data);
+      if (user && user.role === 'buyer') {
+        return {
+          ...DEFAULT_BUYER_PROFILE,
+          id: user.id,
+          name: user.name,
+          businessName: `${user.name} Agri Procurement`,
+          contactNumber: user.phone || '',
+          email: user.email,
+          preferredLanguage: (user.preferredLanguage as any) || 'en',
+        };
+      }
+      return DEFAULT_BUYER_PROFILE;
     } catch {
       return DEFAULT_BUYER_PROFILE;
     }
@@ -418,7 +450,7 @@ export const storageService = {
 
   saveBuyerProfile(profile: BuyerProfile): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.BUYER_PROFILE, JSON.stringify(profile));
+      localStorage.setItem(this.getUserKey('buyer_profile'), JSON.stringify(profile));
     } catch (e) {
       console.error('Failed to save buyer profile', e);
     }
@@ -426,8 +458,19 @@ export const storageService = {
 
   getProfile(): FarmerProfile {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.PROFILE);
-      return data ? JSON.parse(data) : DEFAULT_PROFILE;
+      const user = authService.getUser();
+      const data = localStorage.getItem(this.getUserKey('profile'));
+      if (data) return JSON.parse(data);
+      if (user && user.role === 'farmer') {
+        return {
+          ...DEFAULT_PROFILE,
+          name: user.name,
+          farmName: `${user.name}'s Farm`,
+          contactNumber: user.phone || '',
+          preferredLanguage: (user.preferredLanguage as any) || 'en',
+        };
+      }
+      return DEFAULT_PROFILE;
     } catch {
       return DEFAULT_PROFILE;
     }
@@ -435,7 +478,7 @@ export const storageService = {
 
   saveProfile(profile: FarmerProfile): void {
     try {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+      localStorage.setItem(this.getUserKey('profile'), JSON.stringify(profile));
     } catch (e) {
       console.error('Failed to save profile', e);
     }
@@ -443,10 +486,14 @@ export const storageService = {
 
   getCrops(): CropRecord[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.CROPS);
-      return data ? JSON.parse(data) : DEFAULT_CROPS;
-    } catch {
+      const user = authService.getUser();
+      const data = localStorage.getItem(this.getUserKey('crops'));
+      if (data) return JSON.parse(data);
+      // For authenticated accounts with no crops saved yet, return empty list
+      if (user) return [];
       return DEFAULT_CROPS;
+    } catch {
+      return [];
     }
   },
 
@@ -460,7 +507,7 @@ export const storageService = {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.crops)) {
-            localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(data.crops));
+            localStorage.setItem(this.getUserKey('crops'), JSON.stringify(data.crops));
             return data.crops;
           }
         }
@@ -480,7 +527,7 @@ export const storageService = {
     } else {
       crops.unshift(updated);
     }
-    localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(crops));
+    localStorage.setItem(this.getUserKey('crops'), JSON.stringify(crops));
 
     const token = authService.getToken();
     if (token) {
@@ -495,7 +542,7 @@ export const storageService = {
   async deleteCrop(id: string): Promise<boolean> {
     try {
       const crops = this.getCrops().filter((c) => c.id !== id);
-      localStorage.setItem(STORAGE_KEYS.CROPS, JSON.stringify(crops));
+      localStorage.setItem(this.getUserKey('crops'), JSON.stringify(crops));
 
       const token = authService.getToken();
       if (token) {
@@ -513,10 +560,13 @@ export const storageService = {
 
   getObservations(): FarmObservation[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.OBSERVATIONS);
-      return data ? JSON.parse(data) : DEFAULT_OBSERVATIONS;
-    } catch {
+      const user = authService.getUser();
+      const data = localStorage.getItem(this.getUserKey('observations'));
+      if (data) return JSON.parse(data);
+      if (user) return [];
       return DEFAULT_OBSERVATIONS;
+    } catch {
+      return [];
     }
   },
 
@@ -530,7 +580,7 @@ export const storageService = {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.observations)) {
-            localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(data.observations));
+            localStorage.setItem(this.getUserKey('observations'), JSON.stringify(data.observations));
             return data.observations;
           }
         }
@@ -549,7 +599,7 @@ export const storageService = {
     } else {
       obs.unshift(observation);
     }
-    localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(obs));
+    localStorage.setItem(this.getUserKey('observations'), JSON.stringify(obs));
 
     const token = authService.getToken();
     if (token) {
@@ -564,7 +614,7 @@ export const storageService = {
   async deleteObservation(id: string): Promise<boolean> {
     try {
       const obs = this.getObservations().filter((o) => o.id !== id);
-      localStorage.setItem(STORAGE_KEYS.OBSERVATIONS, JSON.stringify(obs));
+      localStorage.setItem(this.getUserKey('observations'), JSON.stringify(obs));
 
       const token = authService.getToken();
       if (token) {
@@ -582,10 +632,13 @@ export const storageService = {
 
   getSoilScans(): SoilScanRecord[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.SOIL_SCANS);
-      return data ? JSON.parse(data) : DEFAULT_SOIL_SCANS;
-    } catch {
+      const user = authService.getUser();
+      const data = localStorage.getItem(this.getUserKey('soil_scans'));
+      if (data) return JSON.parse(data);
+      if (user) return [];
       return DEFAULT_SOIL_SCANS;
+    } catch {
+      return [];
     }
   },
 
@@ -599,7 +652,7 @@ export const storageService = {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.soilScans)) {
-            localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(data.soilScans));
+            localStorage.setItem(this.getUserKey('soil_scans'), JSON.stringify(data.soilScans));
             return data.soilScans;
           }
         }
@@ -619,7 +672,7 @@ export const storageService = {
       } else {
         scans.unshift(scan);
       }
-      localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(scans));
+      localStorage.setItem(this.getUserKey('soil_scans'), JSON.stringify(scans));
 
       const token = authService.getToken();
       if (token) {
@@ -645,7 +698,7 @@ export const storageService = {
         } else {
           scans.unshift(fallbackScan);
         }
-        localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(scans));
+        localStorage.setItem(this.getUserKey('soil_scans'), JSON.stringify(scans));
         return true;
       } catch (fallbackErr) {
         console.error('Fallback soil scan save failed:', fallbackErr);
@@ -657,7 +710,7 @@ export const storageService = {
   async deleteSoilScan(id: string): Promise<boolean> {
     try {
       const scans = this.getSoilScans().filter((s) => s.id !== id);
-      localStorage.setItem(STORAGE_KEYS.SOIL_SCANS, JSON.stringify(scans));
+      localStorage.setItem(this.getUserKey('soil_scans'), JSON.stringify(scans));
 
       const token = authService.getToken();
       if (token) {
@@ -675,10 +728,13 @@ export const storageService = {
 
   getPlantScans(): PlantScanRecord[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.PLANT_SCANS);
-      return data ? JSON.parse(data) : DEFAULT_PLANT_SCANS;
-    } catch {
+      const user = authService.getUser();
+      const data = localStorage.getItem(this.getUserKey('plant_scans'));
+      if (data) return JSON.parse(data);
+      if (user) return [];
       return DEFAULT_PLANT_SCANS;
+    } catch {
+      return [];
     }
   },
 
@@ -692,7 +748,7 @@ export const storageService = {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.plantScans)) {
-            localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(data.plantScans));
+            localStorage.setItem(this.getUserKey('plant_scans'), JSON.stringify(data.plantScans));
             return data.plantScans;
           }
         }
@@ -712,7 +768,7 @@ export const storageService = {
       } else {
         scans.unshift(scan);
       }
-      localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(scans));
+      localStorage.setItem(this.getUserKey('plant_scans'), JSON.stringify(scans));
 
       const token = authService.getToken();
       if (token) {
@@ -732,7 +788,7 @@ export const storageService = {
   async deletePlantScan(id: string): Promise<boolean> {
     try {
       const scans = this.getPlantScans().filter((s) => s.id !== id);
-      localStorage.setItem(STORAGE_KEYS.PLANT_SCANS, JSON.stringify(scans));
+      localStorage.setItem(this.getUserKey('plant_scans'), JSON.stringify(scans));
 
       const token = authService.getToken();
       if (token) {
@@ -750,7 +806,7 @@ export const storageService = {
 
   getAdvisorMessages(): AdvisorMessage[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.ADVISOR_MESSAGES);
+      const data = localStorage.getItem(this.getUserKey('advisor_messages'));
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
@@ -767,7 +823,7 @@ export const storageService = {
         if (res.ok) {
           const data = await res.json();
           if (data.success && Array.isArray(data.messages)) {
-            localStorage.setItem(STORAGE_KEYS.ADVISOR_MESSAGES, JSON.stringify(data.messages));
+            localStorage.setItem(this.getUserKey('advisor_messages'), JSON.stringify(data.messages));
             return data.messages;
           }
         }
@@ -779,7 +835,7 @@ export const storageService = {
   },
 
   saveAdvisorMessages(messages: AdvisorMessage[]): void {
-    localStorage.setItem(STORAGE_KEYS.ADVISOR_MESSAGES, JSON.stringify(messages));
+    localStorage.setItem(this.getUserKey('advisor_messages'), JSON.stringify(messages));
     const token = authService.getToken();
     if (token) {
       fetch('/api/farmer/advisor-history', {
