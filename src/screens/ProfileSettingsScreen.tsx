@@ -17,7 +17,8 @@ import {
   ArrowRightLeft,
   Building2,
   Mail,
-  Phone
+  Phone,
+  Sparkles
 } from 'lucide-react';
 import { 
   FarmerProfile, 
@@ -27,13 +28,14 @@ import {
   AreaUnit, 
   WeightUnit, 
   TemperatureUnit,
-  AuthUser 
+  AuthUser,
+  TextSize
 } from '../types';
 import { TRANSLATIONS, LANGUAGES } from '../constants/translations';
 import { storageService } from '../services/storage';
 import { authService } from '../services/authService';
 import { AgrovaLogo } from '../components/AgrovaLogo';
-import { Lock, LogOut, KeyRound } from 'lucide-react';
+import { Lock, LogOut, KeyRound, LogIn, Type, Check } from 'lucide-react';
 import { validatePhoneNumber } from '../utils/phoneValidation';
 
 interface ProfileSettingsScreenProps {
@@ -47,6 +49,9 @@ interface ProfileSettingsScreenProps {
   onLanguageChange: (lang: SupportedLanguage) => void;
   onDataReset: () => void;
   onSignOut?: () => void;
+  onOpenAuthForRole?: (role: UserRole) => void;
+  textSize?: TextSize;
+  onTextSizeChange?: (size: TextSize) => void;
 }
 
 export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
@@ -60,6 +65,9 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
   onLanguageChange,
   onDataReset,
   onSignOut,
+  onOpenAuthForRole,
+  textSize,
+  onTextSizeChange,
 }) => {
   const t = TRANSLATIONS[language]?.profile || TRANSLATIONS.en.profile;
   const tAuth = TRANSLATIONS[language]?.auth || TRANSLATIONS.en.auth;
@@ -247,12 +255,38 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
     }
   };
 
-  const handleConfirmRoleSwitch = () => {
-    storageService.setUserRole(targetRoleToSwitch);
-    onSwitchRole(targetRoleToSwitch);
-    setShowRoleConfirm(false);
-    setSavedFeedback(`Switched to ${targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} workspace.`);
-    setTimeout(() => setSavedFeedback(null), 3500);
+  const isMultiRoleAuthorized = Boolean(
+    currentUser &&
+    currentUser.roles &&
+    currentUser.roles.includes(targetRoleToSwitch)
+  );
+
+  const handleConfirmRoleSwitch = async () => {
+    if (currentUser) {
+      if (!isMultiRoleAuthorized) {
+        setShowRoleConfirm(false);
+        if (onOpenAuthForRole) {
+          onOpenAuthForRole(targetRoleToSwitch);
+        }
+        return;
+      }
+      const res = await authService.switchRole(targetRoleToSwitch);
+      if (res.success) {
+        storageService.setUserRole(targetRoleToSwitch);
+        onSwitchRole(targetRoleToSwitch);
+        setShowRoleConfirm(false);
+        setSavedFeedback(`Switched to ${targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} workspace.`);
+        setTimeout(() => setSavedFeedback(null), 3500);
+      } else {
+        alert(res.error || 'Failed to switch role.');
+      }
+    } else {
+      storageService.setUserRole(targetRoleToSwitch);
+      onSwitchRole(targetRoleToSwitch);
+      setShowRoleConfirm(false);
+      setSavedFeedback(`Switched to ${targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} preview.`);
+      setTimeout(() => setSavedFeedback(null), 3500);
+    }
   };
 
   const handleExportBackup = () => {
@@ -338,7 +372,7 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-sm font-bold text-[#144225] font-display">
-                  {currentUser ? currentUser.name : (role === 'farmer' ? profile.name : buyerProfile.name)}
+                  {currentUser ? currentUser.name : (role === 'farmer' ? 'Guest Farmer' : 'Guest Buyer')}
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
                   {currentUser ? 'Verified Account' : 'Guest / Local Session'}
@@ -346,19 +380,30 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
               </div>
               <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                 <Mail className="w-3 h-3 text-slate-400" />
-                <span>{currentUser ? currentUser.email : (role === 'farmer' ? 'agriconnect.farmer.test@example.com' : 'agriconnect.buyer.test@example.com')}</span>
+                <span>{currentUser ? currentUser.email : 'Not signed in (Guest browsing)'}</span>
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handleSignOut}
-            className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
-            title="Sign out of AgriConnect account"
-          >
-            <LogOut className="w-3.5 h-3.5 text-slate-500" />
-            <span>{t.signOutBtn || 'Sign Out'}</span>
-          </button>
+          {currentUser ? (
+            <button
+              onClick={handleSignOut}
+              className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+              title="Sign out of AgriConnect account"
+            >
+              <LogOut className="w-3.5 h-3.5 text-slate-500" />
+              <span>{t.signOutBtn || 'Sign Out'}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => onOpenAuthForRole?.(role)}
+              className="px-3.5 py-1.5 bg-[#14492a] hover:bg-[#0e3a20] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs"
+              title="Sign in to AgriConnect account"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Sign In</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -425,35 +470,114 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
       {/* Confirmation Modal for Role Switching */}
       {showRoleConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-3 shadow-2xl border border-[#dce8d5]">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
-              <ArrowRightLeft className="w-6 h-6" />
-            </div>
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 space-y-3.5 shadow-2xl border border-[#dce8d5]">
+            {currentUser && !isMultiRoleAuthorized ? (
+              <>
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center mx-auto">
+                  <ShieldCheck className="w-6 h-6" />
+                </div>
 
-            <h3 className="text-sm font-bold text-slate-900 text-center">
-              Switch to {targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} Role?
-            </h3>
+                <h3 className="text-sm font-bold text-slate-900 text-center">
+                  Authentication Required
+                </h3>
 
-            <p className="text-xs text-slate-600 leading-relaxed text-center">
-              This will update your primary bottom navigation to the{' '}
-              <strong>{targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'}</strong> workflow.
-              All your existing saved data (crops, farm logs, listings, enquiries) will remain safe and preserved.
-            </p>
+                <p className="text-xs text-slate-600 leading-relaxed text-center">
+                  Your current account (<strong>{currentUser.email}</strong>) is registered as a{' '}
+                  <span className="capitalize font-semibold text-slate-800">{role}</span>.
+                </p>
+                <p className="text-xs text-slate-600 leading-relaxed text-center bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  Access to the <strong>{targetRoleToSwitch === 'farmer' ? 'Farmer Cultivation' : 'Buyer Procurement'}</strong> dashboard requires authenticating with an authorized {targetRoleToSwitch} account.
+                </p>
 
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={handleConfirmRoleSwitch}
-                className="flex-1 min-h-[42px] rounded-xl bg-[#14492a] hover:bg-[#0f3820] text-white text-xs font-bold transition shadow-xs"
-              >
-                Confirm Switch
-              </button>
-              <button
-                onClick={() => setShowRoleConfirm(false)}
-                className="flex-1 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
-              >
-                Cancel
-              </button>
-            </div>
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    onClick={() => {
+                      setShowRoleConfirm(false);
+                      if (onOpenAuthForRole) onOpenAuthForRole(targetRoleToSwitch);
+                    }}
+                    className="w-full min-h-[42px] rounded-xl bg-[#14492a] hover:bg-[#0f3820] text-white text-xs font-bold transition shadow-xs flex items-center justify-center gap-1.5"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Sign In / Register as {targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowRoleConfirm(false)}
+                    className="w-full min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                  >
+                    Cancel & Keep Current Session
+                  </button>
+                </div>
+              </>
+            ) : currentUser && isMultiRoleAuthorized ? (
+              <>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
+                  <ArrowRightLeft className="w-6 h-6" />
+                </div>
+
+                <h3 className="text-sm font-bold text-slate-900 text-center">
+                  Switch to {targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} Workspace
+                </h3>
+
+                <p className="text-xs text-slate-600 leading-relaxed text-center">
+                  Your account (<strong>{currentUser.email}</strong>) is authorized for both roles.
+                  Switching will activate your {targetRoleToSwitch} dashboard under your verified identity.
+                </p>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={handleConfirmRoleSwitch}
+                    className="flex-1 min-h-[42px] rounded-xl bg-[#14492a] hover:bg-[#0f3820] text-white text-xs font-bold transition shadow-xs"
+                  >
+                    Confirm Switch
+                  </button>
+                  <button
+                    onClick={() => setShowRoleConfirm(false)}
+                    className="flex-1 min-h-[42px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
+                  <ArrowRightLeft className="w-6 h-6" />
+                </div>
+
+                <h3 className="text-sm font-bold text-slate-900 text-center">
+                  Preview {targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} Layout?
+                </h3>
+
+                <p className="text-xs text-slate-600 leading-relaxed text-center">
+                  You are currently browsing as a guest. Switching will preview the {targetRoleToSwitch} workspace layout without private personal records.
+                </p>
+
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    onClick={handleConfirmRoleSwitch}
+                    className="w-full min-h-[40px] rounded-xl bg-[#14492a] hover:bg-[#0f3820] text-white text-xs font-bold transition shadow-xs"
+                  >
+                    Preview {targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'} Workspace
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowRoleConfirm(false);
+                      if (onOpenAuthForRole) onOpenAuthForRole(targetRoleToSwitch);
+                    }}
+                    className="w-full min-h-[40px] rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold transition border border-emerald-200 flex items-center justify-center gap-1.5"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>Sign In / Register as {targetRoleToSwitch === 'farmer' ? 'Farmer' : 'Buyer'}</span>
+                  </button>
+                  <button
+                    onClick={() => setShowRoleConfirm(false)}
+                    className="w-full min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -730,13 +854,120 @@ export const ProfileSettingsScreen: React.FC<ProfileSettingsScreenProps> = ({
                     : 'bg-[#f8faf6] text-slate-700 hover:bg-[#f1f6ed] border border-[#e1ebd9]'
                 }`}
               >
-                <div className="font-bold">{lang.localLabel}</div>
+                <div className="font-bold flex items-center justify-between">
+                  <span>{lang.localLabel}</span>
+                  <span className={`text-[9px] px-1 py-0.2 rounded font-medium ${
+                    isSelected ? 'bg-emerald-500/30 text-emerald-100' : 'bg-emerald-50 text-emerald-800'
+                  }`}>
+                    🎙️ Voice
+                  </span>
+                </div>
                 <div className={`text-[10px] ${isSelected ? 'text-emerald-200' : 'text-slate-500'}`}>
                   {lang.label}
                 </div>
               </button>
             );
           })}
+        </div>
+
+        {/* Voice Assistance Capability & Android Voice Engine Notice */}
+        <div className="p-3.5 bg-[#f6f9f3] rounded-2xl border border-[#dbe7d5] space-y-2 text-xs">
+          <div className="flex items-center gap-2 text-[#144225] font-bold">
+            <Sparkles className="w-4 h-4 text-emerald-600" />
+            <span>Voice Assistance in {LANGUAGES.find(l => l.code === language)?.localLabel || 'Your Language'}</span>
+          </div>
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            AgriConnect supports speaking your farming questions and listening to diagnoses aloud.
+            Speech recognition uses browser speech API, while spoken audio uses your Android phone’s installed Text-To-Speech engine.
+          </p>
+          <div className="pt-1 text-[10px] text-slate-500">
+            <strong>Device Tip:</strong> On Android, verify installed language voices under <em>Settings &gt; Accessibility &gt; Text-to-Speech Output &gt; Install voice data</em>.
+          </div>
+        </div>
+      </div>
+
+      {/* 3B. DISPLAY & ACCESSIBILITY SECTION (TEXT SIZE & CONTRAST) */}
+      <div 
+        className="bg-white rounded-3xl p-5 border border-[#dce8d5] shadow-xs space-y-4"
+        role="region"
+        aria-labelledby="accessibility-settings-heading"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Type className="w-4.5 h-4.5 text-emerald-700" aria-hidden="true" />
+            <div>
+              <h2 id="accessibility-settings-heading" className="text-sm font-bold text-[#144225] font-display">
+                Display & Accessibility (वाचन व मजकूर आकार / Text Size)
+              </h2>
+              <p className="text-[11px] text-slate-500">
+                Adjust text scale for better legibility on mobile and in bright sunlight
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            High Contrast
+          </span>
+        </div>
+
+        {/* Text Size Radiogroup */}
+        <div 
+          className="grid grid-cols-1 sm:grid-cols-3 gap-2.5"
+          role="radiogroup"
+          aria-label="Adjustable text size options"
+        >
+          {[
+            { id: 'standard' as TextSize, title: 'Standard', scale: '100%', desc: 'Default system scale for compact viewing' },
+            { id: 'large' as TextSize, title: 'Large', scale: '115%', desc: 'Recommended for mobile reading & Indic fonts' },
+            { id: 'xlarge' as TextSize, title: 'Extra Large', scale: '130%', desc: 'Maximum legibility for low-vision & field use' },
+          ].map((option) => {
+            const isSelected = (textSize || 'standard') === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="radio"
+                aria-checked={isSelected}
+                onClick={() => {
+                  if (onTextSizeChange) {
+                    onTextSizeChange(option.id);
+                  } else {
+                    storageService.saveTextSize(option.id);
+                  }
+                }}
+                className={`p-3.5 rounded-2xl border-2 transition text-left flex flex-col justify-between min-h-[58px] cursor-pointer focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 ${
+                  isSelected
+                    ? 'border-emerald-700 bg-emerald-50 text-emerald-950 shadow-xs'
+                    : 'border-slate-200 hover:border-slate-300 bg-white text-slate-700'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-extrabold text-xs text-[#0e3b20]">{option.title}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">
+                      {option.scale}
+                    </span>
+                    {isSelected && <Check className="w-4 h-4 text-emerald-700 stroke-[3]" aria-hidden="true" />}
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-600 mt-1 leading-snug">
+                  {option.desc}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Live Typography Preview Box */}
+        <div className="p-4 bg-[#f6f9f3] rounded-2xl border border-[#dbe7d5] space-y-1.5">
+          <span className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block">
+            Live Readability Preview
+          </span>
+          <p className="font-medium text-slate-800 leading-relaxed text-sm">
+            “AgriConnect connects farmers with verified buyers, offers real-time crop disease diagnosis, and delivers local mandi price intelligence.”
+          </p>
+          <p className="text-[11px] text-slate-600 mt-1">
+            ✓ WCAG AA compliant contrast (≥ 4.5:1) • Accessible 44–48px touch targets • Android TalkBack screen reader compatible
+          </p>
         </div>
       </div>
 

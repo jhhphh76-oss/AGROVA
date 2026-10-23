@@ -17,6 +17,8 @@ import {
 import { MarketListing, BuyerProfile, CropEnquiry, SupportedLanguage } from '../types';
 import { storageService } from '../services/storage';
 import { TRANSLATIONS } from '../constants/translations';
+import { VoiceMicButton } from '../components/VoiceMicButton';
+import { VoiceSpeakerButton } from '../components/VoiceSpeakerButton';
 
 interface BuyerBrowseCropsScreenProps {
   listings: MarketListing[];
@@ -187,24 +189,31 @@ export const BuyerBrowseCropsScreen: React.FC<BuyerBrowseCropsScreenProps> = ({
           </span>
         </div>
 
-        {/* Search Input */}
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t.quickSearchPlaceholder || "Search by crop, variety, mandi, or farmer name..."}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#f6f9f3] rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 font-medium"
+        {/* Search Input with Voice Search Button */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t.quickSearchPlaceholder || "Search or tap mic to speak..."}
+              className="w-full pl-10 pr-9 py-2.5 min-h-[44px] bg-[#f6f9f3] rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 font-medium"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <VoiceMicButton
+            language={language}
+            onTranscript={(spoken) => setSearchQuery(spoken)}
           />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          )}
         </div>
 
         {/* Source Filter Pills */}
@@ -362,12 +371,12 @@ export const BuyerBrowseCropsScreen: React.FC<BuyerBrowseCropsScreenProps> = ({
                 </p>
               )}
 
-              {/* AGROVA Scan-Based Crop Health Assessment */}
+              {/* AgriConnect Scan-Based Crop Health Assessment */}
               <div className="p-3 rounded-xl bg-[#f5f9f3] border border-[#d8e8d3] space-y-1.5 text-xs">
                 <div className="flex items-center justify-between flex-wrap gap-1.5">
                   <div className="flex items-center gap-1.5 font-bold text-[#144225]">
                     <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <span>AGROVA Crop-Health Assessment</span>
+                    <span>AgriConnect Crop-Health Assessment</span>
                   </div>
                   {listing.cropHealthAssessment ? (
                     <div className="flex items-center gap-1.5">
@@ -387,7 +396,7 @@ export const BuyerBrowseCropsScreen: React.FC<BuyerBrowseCropsScreenProps> = ({
 
                 <p className="text-[11px] text-slate-600 leading-relaxed">
                   {listing.cropHealthAssessment
-                    ? `Assessment score: ${listing.cropHealthAssessment.score}% (Grade ${listing.cropHealthAssessment.grade}). Represents AGROVA's scan-based plant health assessment from leaf scans (${listing.cropHealthAssessment.evaluatedAt}). Proposed thresholds: 95–100%: A+, 85–94%: A, 70–84%: B, 50–69%: C, <50%: D (product thresholds, not an established agricultural standard). Separate from produce quality, harvest yield, pesticide safety, or organic certification; does not guarantee crop quality.`
+                    ? `Assessment score: ${listing.cropHealthAssessment.score}% (Grade ${listing.cropHealthAssessment.grade}). Represents AgriConnect's scan-based plant health assessment from leaf scans (${listing.cropHealthAssessment.evaluatedAt}). Proposed thresholds: 95–100%: A+, 85–94%: A, 70–84%: B, 50–69%: C, <50%: D (product thresholds, not an established agricultural standard). Separate from produce quality, harvest yield, pesticide safety, or organic certification; does not guarantee crop quality.`
                     : 'Not assessed yet — No verified plant leaf scans registered for this crop lot. In-field foliage health has not been assessed.'}
                 </p>
               </div>
@@ -401,13 +410,22 @@ export const BuyerBrowseCropsScreen: React.FC<BuyerBrowseCropsScreenProps> = ({
                   <span className="font-medium text-slate-600">{listing.sellerType}</span>
                 </div>
 
-                <button
-                  onClick={() => handleOpenEnquiryModal(listing)}
-                  className="px-4 py-2 bg-[#14492a] hover:bg-[#0f3820] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
-                >
-                  <MessageSquareText className="w-4 h-4" />
-                  <span>Send Purchase Enquiry</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <VoiceSpeakerButton
+                    text={`${listing.title}, variety ${listing.variety}. Expected price: rupees ${listing.expectedPrice} ${listing.priceUnit}. Available quantity: ${listing.quantity} ${listing.unit}. Location: ${listing.location}, ${listing.state}. ${listing.description || ''}`}
+                    language={language}
+                    utteranceId={`buyer-listing-${listing.id}`}
+                    variant="badge"
+                    customLabel="Listen"
+                  />
+                  <button
+                    onClick={() => handleOpenEnquiryModal(listing)}
+                    className="px-4 py-2 bg-[#14492a] hover:bg-[#0f3820] text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs"
+                  >
+                    <MessageSquareText className="w-4 h-4" />
+                    <span>Send Purchase Enquiry</span>
+                  </button>
+                </div>
               </div>
             </div>
           ))

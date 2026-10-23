@@ -300,6 +300,7 @@ class AuthService {
     farmProfile?: Partial<FarmerProfile>;
     buyerProfile?: Partial<BuyerProfile>;
     role?: UserRole;
+    phone?: string;
   }): Promise<{ success: boolean; user?: AuthUser; profile?: FarmerProfile | BuyerProfile; error?: string }> {
     const token = this.getToken();
     if (!token) return { success: false, error: 'Authentication required.' };
@@ -325,6 +326,66 @@ class AuthService {
         return { success: true, user: data.user, profile: data.profile };
       }
       return { success: false, error: data.error || 'Failed to update profile.' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error.' };
+    }
+  }
+
+  public async switchRole(targetRole: UserRole): Promise<{ success: boolean; user?: AuthUser; profile?: FarmerProfile | BuyerProfile; error?: string }> {
+    const token = this.getToken();
+    if (!token) return { success: false, error: 'Authentication required to switch roles.' };
+
+    try {
+      const res = await fetch('/api/auth/switch-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role: targetRole }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        this.currentUser = data.user;
+        this.currentProfile = data.profile;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        }
+        this.notify();
+        return { success: true, user: data.user, profile: data.profile };
+      }
+      return { success: false, error: data.error || 'Failed to switch role.' };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Network error during role switch.' };
+    }
+  }
+
+  public async addRole(role: UserRole, profileData?: any): Promise<{ success: boolean; user?: AuthUser; profile?: FarmerProfile | BuyerProfile; error?: string }> {
+    const token = this.getToken();
+    if (!token) return { success: false, error: 'Authentication required.' };
+
+    try {
+      const res = await fetch('/api/auth/add-role', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ role, profileData }),
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        this.currentUser = data.user;
+        this.currentProfile = data.profile;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(USER_KEY, JSON.stringify(data.user));
+        }
+        this.notify();
+        return { success: true, user: data.user, profile: data.profile };
+      }
+      return { success: false, error: data.error || 'Failed to add role.' };
     } catch (err: any) {
       return { success: false, error: err.message || 'Network error.' };
     }

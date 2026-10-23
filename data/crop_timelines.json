@@ -1,0 +1,12 @@
+[
+  {
+    "id": "timeline-test-1",
+    "cropName": "Tomato",
+    "variety": "Pusa Ruby",
+    "currentStageIndex": 1,
+    "currentStageName": "Vegetative",
+    "stages": [],
+    "userId": "guest",
+    "lastUpdated": "2026-10-23T01:38:59.119Z"
+  }
+]

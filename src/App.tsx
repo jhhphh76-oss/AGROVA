@@ -11,10 +11,13 @@ import {
   PlantScanRecord,
   MarketListing,
   CropEnquiry,
-  AuthUser
+  AuthUser,
+  TextSize,
+  VoiceStatus
 } from './types';
 import { storageService } from './services/storage';
 import { authService } from './services/authService';
+import { voiceService } from './services/voiceService';
 import { AuthScreen } from './components/AuthScreen';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -29,6 +32,7 @@ import { BuyerBrowseCropsScreen } from './screens/BuyerBrowseCropsScreen';
 import { BuyerEnquiriesScreen } from './screens/BuyerEnquiriesScreen';
 import { BuyerMarketplaceScreen } from './screens/BuyerMarketplaceScreen';
 import { FertilizerGuidanceModal } from './components/FertilizerGuidanceModal';
+import { VoiceAssistantModal } from './components/VoiceAssistantModal';
 import { LANGUAGES } from './constants/translations';
 import { Globe, X, Check } from 'lucide-react';
 
@@ -36,6 +40,11 @@ export default function App() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(() => authService.getUser());
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(() => !authService.isAuthenticated());
+
+  // Accessibility States (Adjustable Text Size & Screen Reader Live Announcements)
+  const [textSize, setTextSize] = useState<TextSize>(() => storageService.getTextSize());
+  const [voiceStatus, setVoiceStatus] = useState<VoiceStatus>(() => voiceService.getStatus());
+  const [srAnnouncement, setSrAnnouncement] = useState<string>('');
 
   // Account Role & Onboarding State
   const [role, setRole] = useState<UserRole>(() => {
@@ -69,9 +78,21 @@ export default function App() {
   const [isFertilizerOpen, setIsFertilizerOpen] = useState<boolean>(false);
   const [selectedCropForFertilizer, setSelectedCropForFertilizer] = useState<string | undefined>(undefined);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
+  const [isVoiceAssistantOpen, setIsVoiceAssistantOpen] = useState<boolean>(false);
 
   // Selected listing for buyer purchase enquiry
   const [selectedListingForEnquiry, setSelectedListingForEnquiry] = useState<MarketListing | null>(null);
+
+  // Synchronize Text Size & Voice Service Status for Accessibility
+  useEffect(() => {
+    storageService.saveTextSize(textSize);
+    const unsub = voiceService.subscribeStatus((st) => {
+      setVoiceStatus(st);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   // Restore authenticated session on mount
   useEffect(() => {
@@ -155,7 +176,6 @@ export default function App() {
     setObservations([]);
     setSoilScans([]);
     setPlantScans([]);
-    setAdvisorMessages([]);
     setEnquiries([]);
 
     setCurrentUser(user);
@@ -188,7 +208,6 @@ export default function App() {
     setObservations([]);
     setSoilScans([]);
     setPlantScans([]);
-    setAdvisorMessages([]);
     setEnquiries([]);
     setProfile(storageService.getProfile());
     setBuyerProfile(storageService.getBuyerProfile());
@@ -217,8 +236,21 @@ export default function App() {
     loadAllData();
   };
 
+  const handleTextSizeChange = (newSize: TextSize) => {
+    setTextSize(newSize);
+    storageService.saveTextSize(newSize);
+    const labels: Record<TextSize, string> = { standard: 'Standard', large: 'Large', xlarge: 'Extra Large' };
+    setSrAnnouncement(`Text size updated to ${labels[newSize]}`);
+    setTimeout(() => setSrAnnouncement(''), 3500);
+  };
+
   const handleLanguageChange = (newLang: SupportedLanguage) => {
     setLanguage(newLang);
+    const langObj = LANGUAGES.find((l) => l.code === newLang);
+    if (langObj) {
+      setSrAnnouncement(`Language updated to ${langObj.label} (${langObj.localLabel})`);
+      setTimeout(() => setSrAnnouncement(''), 3500);
+    }
     if (authService.isAuthenticated()) {
       authService.updateProfile({ preferredLanguage: newLang });
     }
@@ -252,6 +284,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f7f9f4] text-[#192f1f] flex flex-col font-sans selection:bg-emerald-200 selection:text-emerald-900">
+      {/* Screen Reader Live Status Announcer (TalkBack accessibility) */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
+        {srAnnouncement}
+      </div>
+
       {/* Top Header */}
       <Header
         currentLanguage={language}
@@ -261,6 +298,10 @@ export default function App() {
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthOpen(true)}
         role={role}
+        onOpenVoiceAssistant={() => setIsVoiceAssistantOpen(true)}
+        voiceStatus={voiceStatus}
+        textSize={textSize}
+        onTextSizeChange={handleTextSizeChange}
       />
 
       {/* Main Content Area */}
@@ -280,6 +321,7 @@ export default function App() {
                 onOpenFertilizer={() => handleOpenFertilizer()}
                 language={language}
                 enquiriesCount={enquiries.length}
+                onOpenVoiceAssistant={() => setIsVoiceAssistantOpen(true)}
               />
             )}
 
@@ -332,6 +374,8 @@ export default function App() {
                 onLanguageChange={handleLanguageChange}
                 onDataReset={loadAllData}
                 onSignOut={handleSignOut}
+                textSize={textSize}
+                onTextSizeChange={handleTextSizeChange}
               />
             )}
           </>
@@ -397,6 +441,8 @@ export default function App() {
                 onLanguageChange={handleLanguageChange}
                 onDataReset={loadAllData}
                 onSignOut={handleSignOut}
+                textSize={textSize}
+                onTextSizeChange={handleTextSizeChange}
               />
             )}
           </>
@@ -478,6 +524,28 @@ export default function App() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Voice Assistant Modal */}
+      {isVoiceAssistantOpen && (
+        <VoiceAssistantModal
+          isOpen={isVoiceAssistantOpen}
+          onClose={() => setIsVoiceAssistantOpen(false)}
+          language={language}
+          onLanguageChange={handleLanguageChange}
+          role={role}
+          profile={profile}
+          buyerProfile={buyerProfile}
+          crops={crops}
+          onNavigateTab={(tab) => {
+            setActiveTab(tab);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+          onOpenFertilizerModal={(cropName) => {
+            setSelectedCropForFertilizer(cropName);
+            setIsFertilizerOpen(true);
+          }}
+        />
       )}
 
       {/* STRICT REQUIREMENT: Exactly 5 items in bottom navigation for both roles */}

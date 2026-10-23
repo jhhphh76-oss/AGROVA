@@ -41,6 +41,46 @@ import { storageService } from '../services/storage';
 import { soilScanService, ImageProcessResult as SoilImageResult } from '../services/soilScanService';
 import { plantScanService, ImageProcessResult as PlantImageResult } from '../services/plantScanService';
 import { AiAdvisorView } from '../components/AiAdvisorView';
+import { VoiceSpeakerButton } from '../components/VoiceSpeakerButton';
+
+function generatePlantScanSpokenSummary(analysis: PlantAiAnalysis, cropName: string): string {
+  let summary = `Plant diagnostic summary for ${cropName}. `;
+  if (analysis.cropTypeIdentified) {
+    summary += `Crop identified: ${analysis.cropTypeIdentified}. `;
+  }
+  if (analysis.visibleObservations?.foliarCondition) {
+    summary += `Foliar condition: ${analysis.visibleObservations.foliarCondition}. `;
+  }
+  if (analysis.visibleObservations?.pestOrPathogenSigns) {
+    summary += `Pest or pathogen observations: ${analysis.visibleObservations.pestOrPathogenSigns}. `;
+  }
+  if (analysis.possibleExplanations && analysis.possibleExplanations.length > 0) {
+    const topCause = analysis.possibleExplanations[0];
+    summary += `Primary finding: ${topCause.cause}. ${topCause.explanation}. `;
+  }
+  if (analysis.practicalNextSteps && analysis.practicalNextSteps.length > 0) {
+    summary += `Practical next steps: ${analysis.practicalNextSteps.join('. ')}. `;
+  }
+  return summary;
+}
+
+function generateSoilScanSpokenSummary(analysis: SoilAiAnalysis, fieldName: string): string {
+  let summary = `Soil scan assessment for ${fieldName}. `;
+  if (analysis.visibleObservations?.apparentColor) {
+    summary += `Apparent soil color: ${analysis.visibleObservations.apparentColor}. `;
+  }
+  if (analysis.visibleObservations?.visibleTextureParticles) {
+    summary += `Visible texture: ${analysis.visibleObservations.visibleTextureParticles}. `;
+  }
+  if (analysis.possibleCharacteristics && analysis.possibleCharacteristics.length > 0) {
+    const topChar = analysis.possibleCharacteristics[0];
+    summary += `Estimated characteristics: ${topChar.characteristic}. ${topChar.explanation}. `;
+  }
+  if (analysis.recommendedNextSteps && analysis.recommendedNextSteps.length > 0) {
+    summary += `Field recommendations: ${analysis.recommendedNextSteps.join('. ')}. `;
+  }
+  return summary;
+}
 
 interface SoilScanScreenProps {
   onSavedRecord: () => void;
@@ -48,6 +88,7 @@ interface SoilScanScreenProps {
   profile?: FarmerProfile;
   crops?: CropRecord[];
   savedScans?: SoilScanRecord[];
+  initialScreenTab?: 'scanner' | 'history' | 'advisor';
 }
 
 export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
@@ -56,6 +97,7 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
   profile,
   crops = [],
   savedScans: externalScans,
+  initialScreenTab,
 }) => {
   const t = TRANSLATIONS[language]?.soilScan || TRANSLATIONS.en.soilScan;
 
@@ -63,7 +105,9 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
   const [scanMode, setScanMode] = useState<'plant' | 'soil'>('plant');
 
   // Screen View: 'scanner' | 'history' | 'advisor'
-  const [activeScreenTab, setActiveScreenTab] = useState<'scanner' | 'history' | 'advisor'>('scanner');
+  const [activeScreenTab, setActiveScreenTab] = useState<'scanner' | 'history' | 'advisor'>(
+    initialScreenTab || 'scanner'
+  );
 
   // History sub-tab: 'plant' | 'soil'
   const [historySubTab, setHistorySubTab] = useState<'plant' | 'soil'>('plant');
@@ -395,40 +439,46 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
         </div>
 
         {/* Navigation Tabs: Scanner | History | AI Advisor */}
-        <div className="flex items-center gap-1.5 p-1 bg-[#f4f7f2] rounded-2xl border border-[#dbe6d5] shrink-0">
+        <div className="flex items-center gap-1.5 p-1 bg-[#f4f7f2] rounded-2xl border border-[#dbe6d5] shrink-0" role="tablist" aria-label="Scan screen sections">
           <button
+            role="tab"
+            aria-selected={activeScreenTab === 'scanner'}
             onClick={() => setActiveScreenTab('scanner')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-2 min-h-[44px] rounded-xl text-xs font-bold transition flex items-center gap-1.5 focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 ${
               activeScreenTab === 'scanner'
                 ? 'bg-[#14492a] text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Camera className="w-3.5 h-3.5" />
+            <Camera className="w-3.5 h-3.5" aria-hidden="true" />
             <span>New Scan</span>
           </button>
 
           <button
+            role="tab"
+            aria-selected={activeScreenTab === 'history'}
             onClick={() => setActiveScreenTab('history')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-2 min-h-[44px] rounded-xl text-xs font-bold transition flex items-center gap-1.5 focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 ${
               activeScreenTab === 'history'
                 ? 'bg-[#14492a] text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" />
+            <Clock className="w-3.5 h-3.5" aria-hidden="true" />
             <span>History ({plantScansList.length + soilScansList.length})</span>
           </button>
 
           <button
+            role="tab"
+            aria-selected={activeScreenTab === 'advisor'}
             onClick={() => setActiveScreenTab('advisor')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-2 min-h-[44px] rounded-xl text-xs font-bold transition flex items-center gap-1.5 focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 ${
               activeScreenTab === 'advisor'
                 ? 'bg-[#14492a] text-white shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" aria-hidden="true" />
             <span>AI Advisor</span>
           </button>
         </div>
@@ -438,14 +488,17 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
       {activeScreenTab === 'scanner' && (
         <div className="space-y-4">
           {/* TWO CLEAR MODES: Plant Scan vs Soil Scan */}
-          <div className="grid grid-cols-2 gap-2 sm:gap-3">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3" role="radiogroup" aria-label="Select scan type">
             <button
+              type="button"
+              role="radio"
+              aria-checked={scanMode === 'plant'}
               onClick={() => {
                 setScanMode('plant');
                 setImageError(null);
                 setAnalysisError(null);
               }}
-              className={`p-3.5 sm:p-4 rounded-2xl border text-left transition flex items-center gap-3 ${
+              className={`p-3.5 sm:p-4 min-h-[52px] rounded-2xl border text-left transition flex items-center gap-3 cursor-pointer focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 ${
                 scanMode === 'plant'
                   ? 'bg-gradient-to-br from-[#13482a] to-[#0c361e] border-emerald-800 text-white shadow-md'
                   : 'bg-white border-[#dce8d5] text-slate-700 hover:bg-[#fafdf9]'
@@ -457,6 +510,7 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                     ? 'bg-white/20 text-emerald-300'
                     : 'bg-emerald-100 text-emerald-800'
                 }`}
+                aria-hidden="true"
               >
                 <Sprout className="w-5 h-5" />
               </div>
@@ -475,12 +529,15 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
             </button>
 
             <button
+              type="button"
+              role="radio"
+              aria-checked={scanMode === 'soil'}
               onClick={() => {
                 setScanMode('soil');
                 setImageError(null);
                 setAnalysisError(null);
               }}
-              className={`p-3.5 sm:p-4 rounded-2xl border text-left transition flex items-center gap-3 ${
+              className={`p-3.5 sm:p-4 min-h-[52px] rounded-2xl border text-left transition flex items-center gap-3 cursor-pointer focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 ${
                 scanMode === 'soil'
                   ? 'bg-gradient-to-br from-[#13482a] to-[#0c361e] border-emerald-800 text-white shadow-md'
                   : 'bg-white border-[#dce8d5] text-slate-700 hover:bg-[#fafdf9]'
@@ -492,6 +549,7 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                     ? 'bg-white/20 text-emerald-300'
                     : 'bg-amber-100 text-amber-800'
                 }`}
+                aria-hidden="true"
               >
                 <Layers className="w-5 h-5" />
               </div>
@@ -732,6 +790,30 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
 
               {plantAnalysisResult.isSuitable && (
                 <>
+                  {/* Voice Assistance Bar for Plant Scan Results */}
+                  <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-[#edf7ea] rounded-2xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-[#14492a] text-white flex items-center justify-center shrink-0">
+                        <Sparkles className="w-5 h-5 text-emerald-300" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#144225]">
+                          Voice Diagnostic Report
+                        </h4>
+                        <p className="text-[11px] text-[#4b6350]">
+                          Listen to plant findings, foliar health, and field care steps
+                        </p>
+                      </div>
+                    </div>
+                    <VoiceSpeakerButton
+                      text={generatePlantScanSpokenSummary(plantAnalysisResult, selectedCrop)}
+                      language={language}
+                      utteranceId={`plant-scan-result-${plantAnalysisResult.analyzedAt || Date.now()}`}
+                      variant="button"
+                      customLabel="Listen to Plant Diagnosis"
+                    />
+                  </div>
+
                   {/* Card 1: Visible Observations */}
                   <div className="bg-white rounded-3xl p-5 border border-[#dce8d5] shadow-xs space-y-3">
                     <div className="flex items-center gap-2 text-[#144225]">
@@ -948,6 +1030,30 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
 
               {soilAnalysisResult.isSuitable && (
                 <>
+                  {/* Voice Assistance Bar for Soil Scan Results */}
+                  <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-[#edf7ea] rounded-2xl border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-[#14492a] text-white flex items-center justify-center shrink-0">
+                        <Sparkles className="w-5 h-5 text-emerald-300" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-[#144225]">
+                          Voice Soil Analysis Report
+                        </h4>
+                        <p className="text-[11px] text-[#4b6350]">
+                          Listen to soil texture assessment, moisture clues, and field advice
+                        </p>
+                      </div>
+                    </div>
+                    <VoiceSpeakerButton
+                      text={generateSoilScanSpokenSummary(soilAnalysisResult, selectedField)}
+                      language={language}
+                      utteranceId={`soil-scan-result-${soilAnalysisResult.analyzedAt || Date.now()}`}
+                      variant="button"
+                      customLabel="Listen to Soil Report"
+                    />
+                  </div>
+
                   {/* Card 1: Visible Soil Characteristics */}
                   <div className="bg-white rounded-3xl p-5 border border-[#dce8d5] shadow-xs space-y-3">
                     <div className="flex items-center gap-2 text-[#144225]">
@@ -1274,12 +1380,26 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                   {selectedHistoryPlant.cropName || 'Crop'} Scan Details
                 </h3>
               </div>
-              <button
-                onClick={() => setSelectedHistoryPlant(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedHistoryPlant.aiAnalysis && (
+                  <VoiceSpeakerButton
+                    text={generatePlantScanSpokenSummary(
+                      selectedHistoryPlant.aiAnalysis,
+                      selectedHistoryPlant.cropName || 'Crop'
+                    )}
+                    language={language}
+                    utteranceId={`hist-plant-${selectedHistoryPlant.id}`}
+                    variant="badge"
+                    customLabel="Listen"
+                  />
+                )}
+                <button
+                  onClick={() => setSelectedHistoryPlant(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {selectedHistoryPlant.photoUrl && (
@@ -1363,12 +1483,26 @@ export const SoilScanScreen: React.FC<SoilScanScreenProps> = ({
                   Soil Scan Details ({selectedHistorySoil.fieldName})
                 </h3>
               </div>
-              <button
-                onClick={() => setSelectedHistorySoil(null)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {selectedHistorySoil.aiAnalysis && (
+                  <VoiceSpeakerButton
+                    text={generateSoilScanSpokenSummary(
+                      selectedHistorySoil.aiAnalysis,
+                      selectedHistorySoil.fieldName
+                    )}
+                    language={language}
+                    utteranceId={`hist-soil-${selectedHistorySoil.id}`}
+                    variant="badge"
+                    customLabel="Listen"
+                  />
+                )}
+                <button
+                  onClick={() => setSelectedHistorySoil(null)}
+                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {selectedHistorySoil.soilPhotoUrl && (

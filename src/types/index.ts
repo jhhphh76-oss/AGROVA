@@ -20,6 +20,9 @@ export type SupportedLanguage =
   | 'gu' // Gujarati (ગુજરાતી)
   | 'bn'; // Bengali (বাংলা)
 
+export type TextSize = 'standard' | 'large' | 'xlarge';
+export type VoiceStatus = 'idle' | 'listening' | 'processing' | 'success' | 'error';
+
 export type AreaUnit = 'acres' | 'hectares' | 'bigha' | 'guntha';
 export type WeightUnit = 'quintal' | 'kg' | 'ton';
 export type TemperatureUnit = 'celsius' | 'fahrenheit';
@@ -233,6 +236,7 @@ export interface MarketListing {
 
 export interface BuyerProfile {
   id: string;
+  userId?: string;
   name: string;
   businessName: string;
   businessType: 'Wholesale Trader' | 'Retailer' | 'Food Processor / Miller' | 'Exporter' | 'Commission Agent / Mandi Trader';
@@ -270,6 +274,7 @@ export interface AuthUser {
   name: string;
   email: string;
   role: UserRole;
+  roles?: UserRole[];
   phone?: string;
   createdAt: string;
   preferredLanguage: SupportedLanguage;
@@ -340,3 +345,123 @@ export interface WeatherDataState {
   country?: string;
   isStale?: boolean;
 }
+
+export interface AdvisoryRecommendation {
+  id: string;
+  title: string;
+  category: 'irrigation' | 'spraying' | 'growth_stage' | 'field_work' | 'crop_care';
+  urgency: 'action_required' | 'favorable' | 'caution' | 'monitoring';
+  advice: string;
+  reasoning: string;
+  caution: string;
+}
+
+export interface FarmingAdvisoryReport {
+  overallAssessment: string;
+  sprayingDisclaimer: string;
+  spokenSummary: string;
+  recommendations: AdvisoryRecommendation[];
+  cropName?: string;
+  growthStage?: string;
+  location?: string;
+  generatedAt: string;
+  modelUsed?: string;
+}
+
+// ==================== CROP TIMELINE INTERFACES ====================
+export type FarmingMethod = 
+  | 'Drip Irrigated'
+  | 'Rainfed'
+  | 'Canal / Flood Irrigated'
+  | 'Sprinkler Irrigated'
+  | 'Organic / Natural Farming'
+  | 'Integrated Pest Management (IPM)';
+
+export type TimelineActivityCategory = 
+  | 'irrigation'
+  | 'nutrient'
+  | 'weed'
+  | 'pest_disease'
+  | 'field_inspection'
+  | 'harvest';
+
+export interface CropTimelineActivity {
+  id: string;
+  title: string;
+  category: TimelineActivityCategory;
+  timingDescription: string;
+  importanceReason: string;
+  weatherAdjustment?: string;
+  completed: boolean;
+  completedAt?: string;
+  safetyNote?: string;
+}
+
+export interface CropTimelineStage {
+  id: string;
+  stageName: string;
+  stageOrder: number;
+  status: 'completed' | 'current' | 'upcoming';
+  startDayOffset?: number; // Days after sowing/transplanting (min)
+  endDayOffset?: number;   // Days after sowing/transplanting (max)
+  estimatedStartDate?: string; // Formatted date string (e.g. "2026-11-15")
+  estimatedEndDate?: string;   // Formatted date string (e.g. "2026-12-05")
+  isDateEstimated: boolean;    // true when derived from models vs confirmed
+  description: string;
+  keyFocus: string;
+  activities: CropTimelineActivity[];
+}
+
+export interface NextRecommendedAction {
+  title: string;
+  advice: string;
+  reasoning: string;
+  category: TimelineActivityCategory | 'spraying' | 'growth_stage';
+  urgency: 'action_required' | 'favorable' | 'caution' | 'monitoring';
+  timing: string;
+  weatherContext?: string;
+  safetyWarning?: string;
+}
+
+export interface CropTimelineProfile {
+  id: string;
+  cropId?: string; // Optional link to CropRecord
+  cropName: string;
+  variety?: string;
+  sowingDate?: string; // YYYY-MM-DD
+  growingRegion?: string;
+  farmingMethod: FarmingMethod;
+  currentStageIndex: number;
+  currentStageName: string;
+  totalDurationDays?: number; // Total expected crop cycle days
+  daysAfterSowing?: number;
+  progressPercentage?: number; // Only present when reliably calculable, otherwise undefined
+  stages: CropTimelineStage[];
+  nextRecommendedAction: NextRecommendedAction;
+  spokenSummary: string;
+  lastUpdated: string;
+  dataSource: string; // e.g. "ICAR / State Agricultural Universities Package of Practices"
+  aiEnhanced?: boolean;
+}
+
+export interface CropTimelineReminder {
+  id: string;
+  timelineId: string;
+  cropName: string;
+  activityId: string;
+  activityTitle: string;
+  stageName: string;
+  scheduledDate: string;
+  notified: boolean;
+  createdAt: string;
+}
+
+export interface CropTimelineSetupInput {
+  cropName: string;
+  variety?: string;
+  sowingDate?: string;
+  growingRegion?: string;
+  farmingMethod?: FarmingMethod;
+  manualStageIndex?: number;
+}
+

@@ -7,6 +7,7 @@ interface LogoProps {
   className?: string;
   showSubtitle?: boolean;
   subtitleText?: string;
+  besideTitle?: React.ReactNode;
 }
 
 export const AgriConnectLogo: React.FC<LogoProps> = ({
@@ -15,6 +16,7 @@ export const AgriConnectLogo: React.FC<LogoProps> = ({
   className = '',
   showSubtitle = true,
   subtitleText = 'Smart Farming. Fair Earnings.',
+  besideTitle,
 }) => {
   // Track if user-provided authentic image logo exists and loads successfully
   const [imageLoaded, setImageLoaded] = useState<boolean>(false);
@@ -90,6 +92,7 @@ export const AgriConnectLogo: React.FC<LogoProps> = ({
           alt="AgriConnect"
           className={`${sizeConfig.imgHeight} w-auto object-contain shrink-0`}
         />
+        {besideTitle}
         {showSubtitle && (
           <span className={`hidden sm:inline-block ${sizeConfig.subSize} font-semibold text-[#15803d] tracking-wider uppercase`}>
             {subtitleText}
@@ -155,18 +158,21 @@ export const AgriConnectLogo: React.FC<LogoProps> = ({
     );
   }
 
-  // Default: Horizontal brand lockup (Clean, responsive, mobile-safe)
+  // Default: Horizontal brand lockup (Clean, responsive, mobile-safe, never truncated)
   return (
-    <div className={`inline-flex items-center gap-2.5 ${className}`}>
+    <div className={`inline-flex items-center gap-1.5 sm:gap-2.5 shrink-0 ${className}`}>
       {ImageProbe}
       <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-[#14492a] to-[#0a2e1a] flex items-center justify-center text-white shadow-2xs border border-[#1b5b35] shrink-0">
         <Sprout className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-400" />
       </div>
 
-      <div className="flex flex-col justify-center min-w-0">
-        <span className={`font-black ${sizeConfig.textSize} tracking-tight text-[#0d4a2b] leading-tight font-display truncate`}>
-          Agri<span className="text-emerald-600">Connect</span>
-        </span>
+      <div className="flex flex-col justify-center shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <span className={`font-black ${sizeConfig.textSize} tracking-tight text-[#0d4a2b] leading-tight font-display whitespace-nowrap shrink-0`}>
+            Agri<span className="text-emerald-600">Connect</span>
+          </span>
+          {besideTitle}
+        </div>
         {showSubtitle && (
           <span className={`hidden sm:block ${sizeConfig.subSize} font-semibold text-[#15803d] tracking-wider uppercase leading-none truncate`}>
             {subtitleText}

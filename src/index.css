@@ -19,3 +19,38 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 1rem);
 }
+
+/* Accessibility: Root text size scaling for Standard, Large, and Extra Large */
+html,
+html[data-text-size="standard"] {
+  font-size: 100%;
+}
+
+html[data-text-size="large"] {
+  font-size: 115%;
+}
+
+html[data-text-size="xlarge"] {
+  font-size: 130%;
+}
+
+/* High-contrast, visible focus rings for keyboard, switch access & TalkBack navigation */
+:focus-visible {
+  outline: 3px solid #047857 !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.25) !important;
+}
+
+/* Screen reader announcement utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+

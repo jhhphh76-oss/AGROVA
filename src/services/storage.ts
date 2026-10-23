@@ -9,11 +9,14 @@ import {
   SoilScanRecord,
   PlantScanRecord,
   AdvisorMessage,
-  CropDoctorInquiry
+  CropDoctorInquiry,
+  TextSize,
+  CropTimelineProfile,
+  CropTimelineReminder
 } from '../types';
 import { authService } from './authService';
 
-function getRequestHeaders(): Record<string, string> {
+function getRequestHeaders(_userRole?: UserRole, _userId?: string): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };
@@ -29,34 +32,48 @@ const STORAGE_KEYS = {
   HAS_ONBOARDED: 'agriconnect_has_onboarded_v1',
   MARKET_LISTINGS: 'agriconnect_market_listings_v1',
   INITIALIZED: 'agriconnect_initialized_v1',
+  PROFILE: 'agriconnect_profile_v1',
+  BUYER_PROFILE: 'agriconnect_buyer_profile_v1',
+  CROPS: 'agriconnect_crops_v1',
+  OBSERVATIONS: 'agriconnect_observations_v1',
+  SOIL_SCANS: 'agriconnect_soil_scans_v1',
+  PLANT_SCANS: 'agriconnect_plant_scans_v1',
+  ADVISOR_MESSAGES: 'agriconnect_advisor_messages_v1',
+  ENQUIRIES: 'agriconnect_enquiries_v1',
+  CROP_INQUIRIES: 'agriconnect_crop_inquiries_v1',
+  TEXT_SIZE: 'agriconnect_text_size_v1',
 };
 
-const DEFAULT_PROFILE: FarmerProfile = {
-  name: 'Basavaraj Patil',
-  farmName: 'Siddheshwar Krishi Farm',
+const GUEST_FARMER_PROFILE: FarmerProfile = {
+  name: 'Guest Farmer',
+  farmName: 'My Farm',
   villageOrDistrict: 'Vijayapura',
   state: 'Karnataka',
-  contactNumber: '+91 98450 12345',
+  contactNumber: '',
   preferredLanguage: 'en',
   preferredAreaUnit: 'acres',
   preferredWeightUnit: 'quintal',
   preferredTempUnit: 'celsius',
-  totalFarmArea: 12.0,
+  totalFarmArea: 0,
   primarySoilType: 'Black Soil (Regur)',
 };
 
-const DEFAULT_BUYER_PROFILE: BuyerProfile = {
-  id: 'buyer-user-1',
-  name: 'Suresh Kulkarni',
-  businessName: 'Kulkarni Agro Mandi Traders',
+const GUEST_BUYER_PROFILE: BuyerProfile = {
+  id: 'guest-buyer',
+  name: 'Guest Buyer',
+  businessName: 'Procurement Buyer',
   businessType: 'Wholesale Trader',
-  location: 'Vijayapura APMC Market',
+  location: 'Vijayapura APMC',
   state: 'Karnataka',
-  contactNumber: '+91 94481 67890',
-  email: 'suresh.kulkarni@vijayapura-agri.in',
+  contactNumber: '',
+  email: '',
   preferredLanguage: 'en',
   preferredCategories: ['Grains & Cereals', 'Pulses', 'Vegetables', 'Oilseeds'],
 };
+
+// Aliases for backwards compatibility
+const DEFAULT_PROFILE = GUEST_FARMER_PROFILE;
+const DEFAULT_BUYER_PROFILE = GUEST_BUYER_PROFILE;
 
 const DEFAULT_CROPS: CropRecord[] = [
   {
@@ -361,11 +378,23 @@ export const storageService = {
           `agriconnect_plant_scans_${user.id}`,
           `agriconnect_advisor_messages_${user.id}`,
           `agriconnect_enquiries_${user.id}`,
+          `agriconnect_crop_inquiries_${user.id}`,
           `agriconnect_profile_${user.id}`,
           `agriconnect_buyer_profile_${user.id}`,
         ].forEach((k) => localStorage.removeItem(k));
       }
       [
+        'agriconnect_crops_guest',
+        'agriconnect_observations_guest',
+        'agriconnect_soil_scans_guest',
+        'agriconnect_plant_scans_guest',
+        'agriconnect_advisor_messages_guest',
+        'agriconnect_enquiries_guest',
+        'agriconnect_crop_inquiries_guest',
+        'agriconnect_profile_guest',
+        'agriconnect_buyer_profile_guest',
+        'agriconnect_enquiries_v1',
+        'agriconnect_crop_inquiries_v1',
         'agrova_crops_v1',
         'agrova_observations_v1',
         'agrova_soil_scans_v1',
@@ -426,25 +455,63 @@ export const storageService = {
     }
   },
 
+  getTextSize(): TextSize {
+    try {
+      const size = localStorage.getItem(STORAGE_KEYS.TEXT_SIZE);
+      if (size === 'standard' || size === 'large' || size === 'xlarge') return size;
+      return 'standard';
+    } catch {
+      return 'standard';
+    }
+  },
+
+  saveTextSize(size: TextSize): void {
+    try {
+      localStorage.setItem(STORAGE_KEYS.TEXT_SIZE, size);
+      if (typeof document !== 'undefined') {
+        document.documentElement.setAttribute('data-text-size', size);
+      }
+    } catch (e) {
+      console.error('Failed to save text size', e);
+    }
+  },
+
   getBuyerProfile(): BuyerProfile {
     try {
       const user = authService.getUser();
+      if (!user) return GUEST_BUYER_PROFILE;
+
       const data = localStorage.getItem(this.getUserKey('buyer_profile'));
-      if (data) return JSON.parse(data);
-      if (user && user.role === 'buyer') {
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed && (!parsed.userId || parsed.userId === user.id || parsed.id === user.id)) {
+          return {
+            ...parsed,
+            id: user.id,
+            userId: user.id,
+            contactNumber: user.phone || parsed.contactNumber || '',
+          };
+        }
+      }
+
+      if (user.role === 'buyer' || user.roles?.includes('buyer')) {
         return {
-          ...DEFAULT_BUYER_PROFILE,
           id: user.id,
+          userId: user.id,
           name: user.name,
           businessName: `${user.name} Agri Procurement`,
+          businessType: 'Wholesale Trader',
+          location: 'Vijayapura APMC',
+          state: 'Karnataka',
           contactNumber: user.phone || '',
           email: user.email,
           preferredLanguage: (user.preferredLanguage as any) || 'en',
+          preferredCategories: ['Grains & Cereals', 'Pulses', 'Vegetables', 'Oilseeds'],
         };
       }
-      return DEFAULT_BUYER_PROFILE;
+      return GUEST_BUYER_PROFILE;
     } catch {
-      return DEFAULT_BUYER_PROFILE;
+      return GUEST_BUYER_PROFILE;
     }
   },
 
@@ -459,20 +526,39 @@ export const storageService = {
   getProfile(): FarmerProfile {
     try {
       const user = authService.getUser();
+      if (!user) return GUEST_FARMER_PROFILE;
+
       const data = localStorage.getItem(this.getUserKey('profile'));
-      if (data) return JSON.parse(data);
-      if (user && user.role === 'farmer') {
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (parsed && (!parsed.userId || parsed.userId === user.id)) {
+          return {
+            ...parsed,
+            userId: user.id,
+            contactNumber: user.phone || parsed.contactNumber || '',
+          };
+        }
+      }
+
+      if (user.role === 'farmer' || user.roles?.includes('farmer')) {
         return {
-          ...DEFAULT_PROFILE,
+          userId: user.id,
           name: user.name,
           farmName: `${user.name}'s Farm`,
+          villageOrDistrict: 'Vijayapura',
+          state: 'Karnataka',
           contactNumber: user.phone || '',
           preferredLanguage: (user.preferredLanguage as any) || 'en',
+          preferredAreaUnit: 'acres',
+          preferredWeightUnit: 'quintal',
+          preferredTempUnit: 'celsius',
+          totalFarmArea: 5.0,
+          primarySoilType: 'Black Soil (Regur)',
         };
       }
-      return DEFAULT_PROFILE;
+      return GUEST_FARMER_PROFILE;
     } catch {
-      return DEFAULT_PROFILE;
+      return GUEST_FARMER_PROFILE;
     }
   },
 
@@ -486,12 +572,9 @@ export const storageService = {
 
   getCrops(): CropRecord[] {
     try {
-      const user = authService.getUser();
       const data = localStorage.getItem(this.getUserKey('crops'));
       if (data) return JSON.parse(data);
-      // For authenticated accounts with no crops saved yet, return empty list
-      if (user) return [];
-      return DEFAULT_CROPS;
+      return [];
     } catch {
       return [];
     }
@@ -560,11 +643,9 @@ export const storageService = {
 
   getObservations(): FarmObservation[] {
     try {
-      const user = authService.getUser();
       const data = localStorage.getItem(this.getUserKey('observations'));
       if (data) return JSON.parse(data);
-      if (user) return [];
-      return DEFAULT_OBSERVATIONS;
+      return [];
     } catch {
       return [];
     }
@@ -632,11 +713,9 @@ export const storageService = {
 
   getSoilScans(): SoilScanRecord[] {
     try {
-      const user = authService.getUser();
       const data = localStorage.getItem(this.getUserKey('soil_scans'));
       if (data) return JSON.parse(data);
-      if (user) return [];
-      return DEFAULT_SOIL_SCANS;
+      return [];
     } catch {
       return [];
     }
@@ -728,11 +807,9 @@ export const storageService = {
 
   getPlantScans(): PlantScanRecord[] {
     try {
-      const user = authService.getUser();
       const data = localStorage.getItem(this.getUserKey('plant_scans'));
       if (data) return JSON.parse(data);
-      if (user) return [];
-      return DEFAULT_PLANT_SCANS;
+      return [];
     } catch {
       return [];
     }
@@ -859,7 +936,7 @@ export const storageService = {
 
   getCropInquiries(): CropDoctorInquiry[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.CROP_INQUIRIES);
+      const data = localStorage.getItem(this.getUserKey('crop_inquiries'));
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
@@ -869,7 +946,7 @@ export const storageService = {
   saveCropInquiry(inquiry: CropDoctorInquiry): void {
     const inquiries = this.getCropInquiries();
     inquiries.unshift(inquiry);
-    localStorage.setItem(STORAGE_KEYS.CROP_INQUIRIES, JSON.stringify(inquiries));
+    localStorage.setItem(this.getUserKey('crop_inquiries'), JSON.stringify(inquiries));
   },
 
   getMarketListings(): MarketListing[] {
@@ -900,10 +977,11 @@ export const storageService = {
   async saveMarketListing(
     listing: Partial<MarketListing>,
     userRole: UserRole = 'farmer',
-    userId: string = 'farmer-user-1'
+    userId?: string
   ): Promise<{ success: boolean; listing?: MarketListing; error?: string }> {
+    const effectiveUserId = userId || authService.getUser()?.id || 'guest-farmer';
     try {
-      const headers = getRequestHeaders(userRole, userId);
+      const headers = getRequestHeaders(userRole, effectiveUserId);
       const res = await fetch('/api/marketplace/listings', {
         method: 'POST',
         headers,
@@ -930,7 +1008,7 @@ export const storageService = {
         priceUnit: listing.priceUnit || 'per quintal',
         location: listing.location || 'Local Mandi',
         state: listing.state || 'Karnataka',
-        sellerId: userId,
+        sellerId: effectiveUserId,
         sellerName: listing.sellerName || 'Farmer',
         sellerType: listing.sellerType || 'Farmer',
         contactPhone: listing.contactPhone,
@@ -950,11 +1028,11 @@ export const storageService = {
 
   async deleteMarketListing(
     id: string,
-    userRole: UserRole = 'farmer',
-    userId: string = 'farmer-user-1'
+    _userRole?: string,
+    _userId?: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const headers = getRequestHeaders(userRole, userId);
+      const headers = getRequestHeaders();
       const res = await fetch(`/api/marketplace/listings/${id}`, {
         method: 'DELETE',
         headers,
@@ -975,7 +1053,7 @@ export const storageService = {
 
   getEnquiries(): CropEnquiry[] {
     try {
-      const data = localStorage.getItem(STORAGE_KEYS.ENQUIRIES);
+      const data = localStorage.getItem(this.getUserKey('enquiries'));
       return data ? JSON.parse(data) : [];
     } catch {
       return [];
@@ -990,10 +1068,13 @@ export const storageService = {
     } else {
       list.unshift(enquiry);
     }
-    localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(list));
+    localStorage.setItem(this.getUserKey('enquiries'), JSON.stringify(list));
   },
 
-  async fetchEnquiries(userRole: UserRole, userId: string): Promise<CropEnquiry[]> {
+  async fetchEnquiries(userRole?: UserRole, userId?: string): Promise<CropEnquiry[]> {
+    const token = authService.getToken();
+    if (!token) return [];
+
     try {
       const headers = getRequestHeaders(userRole, userId);
       const res = await fetch('/api/marketplace/enquiries', {
@@ -1002,7 +1083,7 @@ export const storageService = {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.enquiries)) {
-          localStorage.setItem(STORAGE_KEYS.ENQUIRIES, JSON.stringify(data.enquiries));
+          localStorage.setItem(this.getUserKey('enquiries'), JSON.stringify(data.enquiries));
           return data.enquiries;
         }
       }
@@ -1147,6 +1228,163 @@ export const storageService = {
     } catch (e) {
       console.error('Import failed', e);
       return false;
+    }
+  },
+
+  // ==================== CROP TIMELINE PERSISTENCE ====================
+  getAllCropTimelines(): CropTimelineProfile[] {
+    try {
+      const data = localStorage.getItem(this.getUserKey('crop_timelines'));
+      if (data) return JSON.parse(data);
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  getCropTimeline(cropNameOrId: string): CropTimelineProfile | null {
+    try {
+      const all = this.getAllCropTimelines();
+      const cleanTarget = cropNameOrId.trim().toLowerCase();
+      const found = all.find(
+        (t) =>
+          t.id === cropNameOrId ||
+          t.cropId === cropNameOrId ||
+          t.cropName.toLowerCase() === cleanTarget ||
+          cleanTarget.includes(t.cropName.toLowerCase())
+      );
+      return found || null;
+    } catch {
+      return null;
+    }
+  },
+
+  saveCropTimeline(timeline: CropTimelineProfile): void {
+    try {
+      const all = this.getAllCropTimelines();
+      const index = all.findIndex((t) => t.id === timeline.id || t.cropName.toLowerCase() === timeline.cropName.toLowerCase());
+      const updated = { ...timeline, lastUpdated: new Date().toISOString() };
+      if (index >= 0) {
+        all[index] = updated;
+      } else {
+        all.unshift(updated);
+      }
+      localStorage.setItem(this.getUserKey('crop_timelines'), JSON.stringify(all));
+
+      // Also sync to backend if user is authenticated
+      const token = authService.getToken();
+      if (token) {
+        fetch('/api/crop-timeline', {
+          method: 'POST',
+          headers: getRequestHeaders(),
+          body: JSON.stringify(updated),
+        }).catch((err) => console.warn('Background timeline sync failed:', err));
+      }
+    } catch (err) {
+      console.error('Failed to save crop timeline:', err);
+    }
+  },
+
+  toggleTimelineActivity(timelineId: string, activityId: string): CropTimelineProfile | null {
+    try {
+      const all = this.getAllCropTimelines();
+      const timeline = all.find((t) => t.id === timelineId);
+      if (!timeline) return null;
+
+      let found = false;
+      timeline.stages.forEach((st) => {
+        st.activities.forEach((act) => {
+          if (act.id === activityId) {
+            act.completed = !act.completed;
+            act.completedAt = act.completed ? new Date().toISOString() : undefined;
+            found = true;
+          }
+        });
+      });
+
+      if (!found) return null;
+
+      this.saveCropTimeline(timeline);
+      return timeline;
+    } catch (err) {
+      console.error('Failed to toggle timeline activity:', err);
+      return null;
+    }
+  },
+
+  updateTimelineStage(timelineId: string, newStageIndex: number): CropTimelineProfile | null {
+    try {
+      const all = this.getAllCropTimelines();
+      const timeline = all.find((t) => t.id === timelineId);
+      if (!timeline || newStageIndex < 0 || newStageIndex >= timeline.stages.length) return null;
+
+      timeline.currentStageIndex = newStageIndex;
+      timeline.currentStageName = timeline.stages[newStageIndex].stageName;
+
+      // Update stage statuses: completed for past, current for active, upcoming for future
+      timeline.stages.forEach((st, idx) => {
+        if (idx < newStageIndex) {
+          st.status = 'completed';
+        } else if (idx === newStageIndex) {
+          st.status = 'current';
+        } else {
+          st.status = 'upcoming';
+        }
+      });
+
+      // Update next recommended action
+      const currentStage = timeline.stages[newStageIndex];
+      const pendingActivity = currentStage.activities.find((a) => !a.completed) || currentStage.activities[0];
+      if (pendingActivity) {
+        timeline.nextRecommendedAction = {
+          title: pendingActivity.title,
+          advice: pendingActivity.importanceReason,
+          reasoning: `Recommended for ${timeline.cropName} during ${currentStage.stageName}.`,
+          category: pendingActivity.category,
+          urgency: 'action_required',
+          timing: pendingActivity.timingDescription,
+          safetyWarning: pendingActivity.safetyNote || 'Check actual field conditions and product label instructions.',
+        };
+      }
+
+      this.saveCropTimeline(timeline);
+      return timeline;
+    } catch (err) {
+      console.error('Failed to update timeline stage:', err);
+      return null;
+    }
+  },
+
+  // ==================== TIMELINE REMINDERS ====================
+  getTimelineReminders(): CropTimelineReminder[] {
+    try {
+      const data = localStorage.getItem(this.getUserKey('timeline_reminders'));
+      if (data) return JSON.parse(data);
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  saveTimelineReminder(reminder: CropTimelineReminder): void {
+    try {
+      const all = this.getTimelineReminders();
+      const exists = all.some((r) => r.id === reminder.id || (r.timelineId === reminder.timelineId && r.activityId === reminder.activityId));
+      if (!exists) {
+        all.unshift(reminder);
+        localStorage.setItem(this.getUserKey('timeline_reminders'), JSON.stringify(all));
+      }
+    } catch (err) {
+      console.error('Failed to save timeline reminder:', err);
+    }
+  },
+
+  deleteTimelineReminder(reminderId: string): void {
+    try {
+      const all = this.getTimelineReminders().filter((r) => r.id !== reminderId);
+      localStorage.setItem(this.getUserKey('timeline_reminders'), JSON.stringify(all));
+    } catch (err) {
+      console.error('Failed to delete timeline reminder:', err);
     }
   },
 };

@@ -204,6 +204,19 @@ export interface TranslationDictionary {
     importBackup: string;
     loggedInAs: string;
   };
+  voice: {
+    speakBtn: string;
+    listening: string;
+    processing: string;
+    couldNotUnderstand: string;
+    listenBtn: string;
+    stopBtn: string;
+    replayBtn: string;
+    voiceUnavailable: string;
+    micPermissionDenied: string;
+    tapToRetry: string;
+    speakInstruction: string;
+  };
 }
 
 export const LANGUAGES: { code: SupportedLanguage; label: string; localLabel: string }[] = [
@@ -231,6 +244,7 @@ const createLangDict = (overrides: any): TranslationDictionary => ({
   fertilizer: { ...TRANSLATIONS_EN.fertilizer, ...(overrides.fertilizer || {}) },
   marketplace: { ...TRANSLATIONS_EN.marketplace, ...(overrides.marketplace || {}) },
   profile: { ...TRANSLATIONS_EN.profile, ...(overrides.profile || {}) },
+  voice: { ...TRANSLATIONS_EN.voice, ...(overrides.voice || {}) },
 });
 
 export const TRANSLATIONS_EN: TranslationDictionary = {
@@ -437,6 +451,19 @@ export const TRANSLATIONS_EN: TranslationDictionary = {
       importBackup: 'Import Farm Data (JSON)',
       loggedInAs: 'Signed in as:',
     },
+    voice: {
+      speakBtn: 'Speak Question',
+      listening: 'Listening... Speak now',
+      processing: 'Processing speech...',
+      couldNotUnderstand: 'Could not understand. Tap to retry.',
+      listenBtn: 'Listen to Answer',
+      stopBtn: 'Stop Speaking',
+      replayBtn: 'Replay Speech',
+      voiceUnavailable: 'Voice not available on this device',
+      micPermissionDenied: 'Microphone permission denied',
+      tapToRetry: 'Tap to retry',
+      speakInstruction: 'Speak in your selected language',
+    },
 };
 
 export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
@@ -545,6 +572,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       exportBackup: 'डेटा बैकअप डाउनलोड करें (JSON)',
       importBackup: 'डेटा रीस्टोर करें (JSON)',
     },
+    voice: {
+      speakBtn: 'बोलकर पूछें',
+      listening: 'सुन रहा हूँ... बोलिए',
+      processing: 'आवाज़ को प्रोसेस किया जा रहा है...',
+      couldNotUnderstand: 'समझ नहीं आया। पुनः प्रयास करने के लिए टैप करें।',
+      listenBtn: 'उत्तर सुनें',
+      stopBtn: 'आवाज़ रोकें',
+      replayBtn: 'फिर से सुनें',
+      voiceUnavailable: 'इस डिवाइस पर हिंदी आवाज़ उपलब्ध नहीं है',
+      micPermissionDenied: 'माइक्रोफ़ोन की अनुमति अस्वीकृत है',
+      tapToRetry: 'पुनः प्रयास करने के लिए टैप करें',
+      speakInstruction: 'हिंदी में बोलें',
+    },
   }),
   pa: createLangDict({
     appName: 'AgriConnect',
@@ -649,6 +689,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       resetDemoData: 'ਡੇਟਾ ਰੀਸੈੱਟ ਕਰੋ',
       exportBackup: 'ਬੈਕਅੱਪ ਡਾਊਨਲੋਡ ਕਰੋ (JSON)',
       importBackup: 'ਬੈਕਅੱਪ ਰੀਸਟੋਰ ਕਰੋ (JSON)',
+    },
+    voice: {
+      speakBtn: 'ਬੋਲ ਕੇ ਪੁੱਛੋ',
+      listening: 'ਸੁਣ ਰਿਹਾ ਹੈ... ਹੁਣ ਬੋਲੋ',
+      processing: 'ਆਵਾਜ਼ ਤਬਦੀਲ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ...',
+      couldNotUnderstand: 'ਸਮਝ ਨਹੀਂ ਆਇਆ। ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।',
+      listenBtn: 'ਜਵਾਬ ਸੁਣੋ',
+      stopBtn: 'ਆਵਾਜ਼ ਰੋਕੋ',
+      replayBtn: 'ਦੁਬਾਰਾ ਸੁਣੋ',
+      voiceUnavailable: 'ਇਸ ਡਿਵਾਈਸ ਤੇ ਪੰਜਾਬੀ ਆਵਾਜ਼ ਉਪਲਬਧ ਨਹੀਂ ਹੈ',
+      micPermissionDenied: 'ਮਾਈਕ੍ਰੋਫੋਨ ਦੀ ਇਜਾਜ਼ਤ ਨਹੀਂ ਮਿਲੀ',
+      tapToRetry: 'ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ',
+      speakInstruction: 'ਪੰਜਾਬੀ ਵਿੱਚ ਬੋਲੋ',
     },
   }),
   mr: createLangDict({
@@ -755,6 +808,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       exportBackup: 'बॅकअप डाउनलोड करा (JSON)',
       importBackup: 'बॅकअप रिस्टोअर करा (JSON)',
     },
+    voice: {
+      speakBtn: 'बोलून विचारा',
+      listening: 'ऐकत आहे... बोला',
+      processing: 'आवाज रूपांतरित होत आहे...',
+      couldNotUnderstand: 'समजले नाही. पुन्हा प्रयत्न करण्यासाठी टॅप करा.',
+      listenBtn: 'उत्तर ऐका',
+      stopBtn: 'आवाज थांबवा',
+      replayBtn: 'पुन्हा ऐका',
+      voiceUnavailable: 'या डिव्हाइसवर मराठी आवाज उपलब्ध नाही',
+      micPermissionDenied: 'मायक्रोफोन परवानगी नाकारली',
+      tapToRetry: 'पुन्हा प्रयत्न करा',
+      speakInstruction: 'मराठीत बोला',
+    },
   }),
   te: createLangDict({
     appName: 'AgriConnect',
@@ -860,6 +926,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       exportBackup: 'బ్యాకప్ డౌన్‌లోడ్ (JSON)',
       importBackup: 'రీస్టోర్ చేయండి (JSON)',
     },
+    voice: {
+      speakBtn: 'మాట్లాడి అడగండి',
+      listening: 'వింటోంది... ఇప్పుడు మాట్లాడండి',
+      processing: 'వాయిస్ ప్రాసెస్ అవుతోంది...',
+      couldNotUnderstand: 'అర్థం కాలేదు. మళ్లీ ప్రయత్నించండి.',
+      listenBtn: 'సమాధానం వినండి',
+      stopBtn: 'వాయిస్ ఆపండి',
+      replayBtn: 'మళ్లీ వినండి',
+      voiceUnavailable: 'ఈ పరికరంలో తెలుగు వాయిస్ అందుబాటులో లేదు',
+      micPermissionDenied: 'మైక్రోఫోన్ అనుమతి నిరాకరించబడింది',
+      tapToRetry: 'మళ్లీ ప్రయత్నించండి',
+      speakInstruction: 'తెలుగులో మాట్లాడండి',
+    },
   }),
   ta: createLangDict({
     appName: 'AgriConnect',
@@ -964,6 +1043,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       resetDemoData: 'தரவை மீட்டமைக்க',
       exportBackup: 'காப்புப்பிரதி பதிவிறக்கம் (JSON)',
       importBackup: 'மீட்டெடு (JSON)',
+    },
+    voice: {
+      speakBtn: 'பேசிக் கேளுங்கள்',
+      listening: 'கேட்கிறது... இப்போது பேசுங்கள்',
+      processing: 'குரல் செயலாக்கப்படுகிறது...',
+      couldNotUnderstand: 'புரியவில்லை. மீண்டும் முயற்சிக்க தட்டவும்.',
+      listenBtn: 'பதிலைக் கேளுங்கள்',
+      stopBtn: 'நிறுத்து',
+      replayBtn: 'மீண்டும் கேளுங்கள்',
+      voiceUnavailable: 'இந்த சாதனத்தில் தமிழ் குரல் கிடைக்கவில்லை',
+      micPermissionDenied: 'மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டது',
+      tapToRetry: 'மீண்டும் முயற்சிக்கவும்',
+      speakInstruction: 'தமிழில் பேசுங்கள்',
     },
   }),
   kn: {
@@ -1169,6 +1261,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       importBackup: 'ಬ್ಯಾಕಪ್ ಮರುಸ್ಥಾಪಿಸಿ (JSON)',
       loggedInAs: 'ಲಾಗಿನ್ ಆದ ಖಾತೆ:',
     },
+    voice: {
+      speakBtn: 'ಪ್ರಶ್ನೆ ಮಾತನಾಡಿ',
+      listening: 'ಆಲಿಸುತ್ತಿದೆ... ಈಗ ಮಾತನಾಡಿ',
+      processing: 'ಮಾತನ್ನು ಪರಿವರ್ತಿಸಲಾಗುತ್ತಿದೆ...',
+      couldNotUnderstand: 'ಅರ್ಥವಾಗಲಿಲ್ಲ. ಮರುಪ್ರಯತ್ನಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ.',
+      listenBtn: 'ಉತ್ತರವನ್ನು ಆಲಿಸಿ',
+      stopBtn: 'ಧ್ವನಿ ನಿಲ್ಲಿಸಿ',
+      replayBtn: 'ಮತ್ತೆ ಆಲಿಸಿ',
+      voiceUnavailable: 'ಈ ಸಾಧನದಲ್ಲಿ ಕನ್ನಡ ಧ್ವನಿ ಲಭ್ಯವಿಲ್ಲ',
+      micPermissionDenied: 'ಮೈಕ್ರೊಫೋನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ',
+      tapToRetry: 'ಮರುಪ್ರಯತ್ನಿಸಲು ಟ್ಯಾಪ್ ಮಾಡಿ',
+      speakInstruction: 'ಕನ್ನಡದಲ್ಲಿ ಮಾತನಾಡಿ',
+    },
   },
   gu: createLangDict({
     appName: 'AgriConnect',
@@ -1274,6 +1379,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       exportBackup: 'બેકઅપ ડાઉનલોડ (JSON)',
       importBackup: 'બેકઅપ રીસ્ટોર (JSON)',
     },
+    voice: {
+      speakBtn: 'બોલીને પૂછો',
+      listening: 'સાંભળી રહ્યું છે... બોલો',
+      processing: 'અવાજ પ્રોસેસ થઈ રહ્યો છે...',
+      couldNotUnderstand: 'સમજાયું નહીં. ફરીથી પ્રયાસ કરવા ટેપ કરો.',
+      listenBtn: 'જવાબ સાંભળો',
+      stopBtn: 'અવાજ બંધ કરો',
+      replayBtn: 'ફરી સાંભળો',
+      voiceUnavailable: 'આ ડિવાઇસ પર ગુજરાતી અવાજ ઉપલબ્ધ નથી',
+      micPermissionDenied: 'માઇક્રોફોન પરવાનગી અસ્વીકાર્ય',
+      tapToRetry: 'ફરી પ્રયાસ કરો',
+      speakInstruction: 'ગુજરાતીમાં બોલો',
+    },
   }),
   bn: createLangDict({
     appName: 'AgriConnect',
@@ -1378,6 +1496,19 @@ export const TRANSLATIONS: Record<SupportedLanguage, TranslationDictionary> = {
       resetDemoData: 'ডেটা রিসেট',
       exportBackup: 'ব্যাকআপ ডাউনলোড (JSON)',
       importBackup: 'ব্যাকআপ রিস্টোর (JSON)',
+    },
+    voice: {
+      speakBtn: 'মুখে বলে প্রশ্ন করুন',
+      listening: 'শুনছি... এখন বলুন',
+      processing: 'ভয়েস প্রক্রিয়া করা হচ্ছে...',
+      couldNotUnderstand: 'বোঝা যায়নি। পুনরায় চেষ্টা করতে ট্যাপ করুন।',
+      listenBtn: 'উত্তর শুনুন',
+      stopBtn: 'থামুন',
+      replayBtn: 'পুনরায় শুনুন',
+      voiceUnavailable: 'এই ডিভাইসে বাংলা ভয়েস উপলব্ধ নেই',
+      micPermissionDenied: 'মাইক্রোফোন অনুমতি প্রত্যাখ্যাত',
+      tapToRetry: 'আবার চেষ্টা করুন',
+      speakInstruction: 'বাংলায় কথা বলুন',
     },
   }),
 };

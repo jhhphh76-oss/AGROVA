@@ -17,6 +17,8 @@ import {
 import { GrowthStage, SupportedLanguage, FarmerProfile, PlantScanRecord, SoilScanRecord } from '../types';
 import { TRANSLATIONS } from '../constants/translations';
 import { storageService } from '../services/storage';
+import { VoiceSpeakerButton } from './VoiceSpeakerButton';
+import { VoiceMicButton } from './VoiceMicButton';
 
 interface FertilizerGuidanceModalProps {
   isOpen: boolean;
@@ -568,14 +570,20 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
 
               {/* Additional Observations */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1 uppercase tracking-wider">
-                  Field Observations (Optional)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Field Observations (Optional)
+                  </label>
+                  <VoiceMicButton
+                    language={language}
+                    onTranscript={(spoken) => setFarmingNotes((prev) => (prev ? `${prev} ${spoken}` : spoken))}
+                  />
+                </div>
                 <input
                   type="text"
                   value={farmingNotes}
                   onChange={(e) => setFarmingNotes(e.target.value)}
-                  placeholder="E.g., Drip irrigation installed, clay-loam soil, 1st split applied 15 days ago..."
+                  placeholder="E.g., Drip irrigation installed, clay-loam soil, 1st split applied 15 days ago (or tap mic)..."
                   className="w-full text-xs bg-white border border-[#d2e2cb] rounded-xl px-3 py-2.5 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 />
               </div>
@@ -629,10 +637,23 @@ export const FertilizerGuidanceModal: React.FC<FertilizerGuidanceModalProps> = (
               )}
 
               {/* Overall Strategy Card */}
-              <div className="p-4 rounded-2xl bg-[#edf7ea] border border-[#b9e2b1] text-[#0d4a2b] space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <h3 className="font-bold text-sm">Nutrient Management Strategy for {crop}</h3>
+              <div className="p-4 rounded-2xl bg-[#edf7ea] border border-[#b9e2b1] text-[#0d4a2b] space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    <h3 className="font-bold text-sm">Nutrient Management Strategy for {crop}</h3>
+                  </div>
+                  <VoiceSpeakerButton
+                    text={`Nutrient management strategy for ${crop}. ${guidanceResult.summary}. ${
+                      guidanceResult.actionableNextSteps && guidanceResult.actionableNextSteps.length > 0
+                        ? 'Next steps: ' + guidanceResult.actionableNextSteps.join('. ')
+                        : ''
+                    }`}
+                    language={language}
+                    utteranceId={`fert-strat-${crop}-${stage}`}
+                    variant="badge"
+                    customLabel="Listen"
+                  />
                 </div>
                 <p className="text-xs text-emerald-800 leading-relaxed font-medium">
                   {guidanceResult.summary}

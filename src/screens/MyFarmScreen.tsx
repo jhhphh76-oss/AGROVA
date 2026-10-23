@@ -25,6 +25,7 @@ import {
 } from '../types';
 import { TRANSLATIONS } from '../constants/translations';
 import { storageService } from '../services/storage';
+import { CropTimelineSection } from '../components/CropTimelineSection';
 
 interface MyFarmScreenProps {
   profile: FarmerProfile;
@@ -72,6 +73,9 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
   
   // Safe item deletion state (modal-based)
   const [itemToDelete, setItemToDelete] = useState<{ type: 'crop' | 'observation'; id: string; name: string } | null>(null);
+  
+  // Crop Timeline Modal state
+  const [timelineCrop, setTimelineCrop] = useState<string | null>(null);
   
   // Farm Profile Edit Modal
   const [isEditingFarm, setIsEditingFarm] = useState<boolean>(false);
@@ -432,14 +436,23 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
                       </p>
                     )}
 
-                    {/* Quick Context Action: Fertilizer Guidance */}
-                    <div className="pt-1 border-t border-[#edf3ea]">
+                    {/* Quick Context Actions: Crop Timeline & Fertilizer Guidance */}
+                    <div className="pt-1 border-t border-[#edf3ea] grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => setTimelineCrop(crop.name)}
+                        className="flex items-center justify-center gap-1.5 py-2 px-2.5 min-h-[40px] rounded-xl bg-[#14492a] hover:bg-[#0e3a20] text-white text-xs font-bold transition min-w-0 shadow-2xs cursor-pointer"
+                        title="View Crop Timeline & Stage Guidance"
+                      >
+                        <Calendar className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">Crop Timeline</span>
+                      </button>
+
                       <button
                         onClick={() => onOpenFertilizerWithCrop(crop.name)}
-                        className="w-full flex items-center justify-center gap-1.5 py-2.5 px-3 min-h-[40px] rounded-xl bg-[#edf5eb] hover:bg-[#e1eedc] text-[#14492a] text-xs font-bold transition min-w-0"
+                        className="flex items-center justify-center gap-1.5 py-2 px-2.5 min-h-[40px] rounded-xl bg-[#edf5eb] hover:bg-[#e1eedc] text-[#14492a] text-xs font-bold transition min-w-0 cursor-pointer"
                         title={t.fertilizerGuidance}
                       >
-                        <Sparkles className="w-4 h-4 text-emerald-700 shrink-0" />
+                        <Sparkles className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
                         <span className="truncate">{t.fertilizerGuidance}</span>
                       </button>
                     </div>
@@ -1042,6 +1055,40 @@ export const MyFarmScreen: React.FC<MyFarmScreenProps> = ({
                 Delete Record
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Crop Timeline Modal */}
+      {timelineCrop && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-3.5 bg-black/60 backdrop-blur-xs animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-[#f7f9f4] rounded-3xl max-w-2xl w-full p-4 sm:p-6 space-y-4 shadow-xl border border-slate-200 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <Sprout className="w-5 h-5 text-emerald-700" />
+                <h3 className="text-sm sm:text-base font-bold text-[#144225] font-display">
+                  Crop Timeline: {timelineCrop}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTimelineCrop(null)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 cursor-pointer"
+                aria-label="Close Crop Timeline"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <CropTimelineSection
+              cropName={timelineCrop}
+              crops={crops}
+              language={language}
+              farmLocation={`${profile.villageOrDistrict || 'Vijayapura'}, ${profile.state || 'Karnataka'}`}
+            />
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { AdvisorMessage, WeatherDataState } from '../types';
+import { AdvisorMessage, WeatherDataState, FarmingAdvisoryReport, SupportedLanguage } from '../types';
 
 export interface ConsultAdvisorParams {
   messages: { role: 'user' | 'assistant'; content: string }[];
@@ -17,6 +17,15 @@ export interface ConsultAdvisorParams {
   };
   locationContext?: string;
   language?: string;
+}
+
+export interface FetchFarmingAdvisoryParams {
+  weather: any;
+  cropName?: string;
+  variety?: string;
+  growthStage?: string;
+  location?: string;
+  language?: SupportedLanguage;
 }
 
 export const advisorService = {
@@ -79,6 +88,51 @@ export const advisorService = {
       return {
         success: false,
         error: err.message || 'Unable to connect to AI Advisor service.',
+      };
+    }
+  },
+
+  async fetchFarmingAdvisory(
+    params: FetchFarmingAdvisoryParams
+  ): Promise<{ success: boolean; advisory?: FarmingAdvisoryReport; error?: string; warning?: string }> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      const response = await fetch('/api/farming-advisory', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      const data = await response.json();
+
+      if (!response.ok || !data?.success) {
+        return {
+          success: false,
+          error: data?.error || `Server error (${response.status})`,
+        };
+      }
+
+      return {
+        success: true,
+        advisory: data.advisory,
+        warning: data.warning,
+      };
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Farming Advisory request timed out. Please check your connection.',
+        };
+      }
+      return {
+        success: false,
+        error: err.message || 'Unable to connect to Farming Advisory service.',
       };
     }
   },

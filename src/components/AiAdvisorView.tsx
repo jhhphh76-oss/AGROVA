@@ -13,12 +13,19 @@ import {
   X, 
   HelpCircle,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Mic,
+  MicOff,
+  Volume2,
+  Pause,
+  Play,
+  Square
 } from 'lucide-react';
 import { AdvisorMessage, SupportedLanguage } from '../types';
 import { storageService } from '../services/storage';
 import { advisorService } from '../services/advisorService';
 import { weatherService } from '../services/weatherService';
+import { voiceService, TtsState } from '../services/voiceService';
 
 interface AiAdvisorViewProps {
   language: SupportedLanguage;
@@ -52,7 +59,20 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
     precipitationProbability: number;
   } | null>(null);
 
+  // Audio response & speech recognition state
+  const [ttsState, setTtsState] = useState<TtsState>('idle');
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [isListeningInput, setIsListeningInput] = useState<boolean>(false);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  // Cleanup speech synthesis & recognition on unmount
+  useEffect(() => {
+    return () => {
+      voiceService.stopSpeaking();
+      voiceService.stopListening();
+    };
+  }, []);
 
   // Load live weather context if available
   useEffect(() => {
@@ -152,10 +172,79 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
 
   const handleClearChat = () => {
     if (confirm('Clear entire conversation history?')) {
+      voiceService.stopSpeaking();
+      setTtsState('idle');
+      setSpeakingMsgId(null);
       setMessages([]);
       storageService.clearAdvisorMessages();
       setErrorMsg(null);
     }
+  };
+
+  const handleToggleSpeak = (msgId: string, content: string) => {
+    if (speakingMsgId === msgId && ttsState === 'speaking') {
+      voiceService.pause();
+      setTtsState('paused');
+      return;
+    }
+    if (speakingMsgId === msgId && ttsState === 'paused') {
+      voiceService.resume();
+      setTtsState('speaking');
+      return;
+    }
+
+    voiceService.stopSpeaking();
+    setSpeakingMsgId(msgId);
+    setTtsState('speaking');
+
+    voiceService.speak(content, language, {
+      onStart: () => setTtsState('speaking'),
+      onEnd: () => {
+        setTtsState('idle');
+        setSpeakingMsgId(null);
+      },
+      onError: () => {
+        setTtsState('idle');
+        setSpeakingMsgId(null);
+      },
+      onPause: () => setTtsState('paused'),
+      onResume: () => setTtsState('speaking'),
+    });
+  };
+
+  const handleStopSpeaking = () => {
+    voiceService.stopSpeaking();
+    setTtsState('idle');
+    setSpeakingMsgId(null);
+  };
+
+  const handleToggleVoiceInput = async () => {
+    if (isListeningInput) {
+      voiceService.stopListening();
+      setIsListeningInput(false);
+      return;
+    }
+
+    const { granted, error } = await voiceService.requestMicrophonePermission();
+    if (!granted) {
+      alert(error || 'Microphone access is needed for speech recognition.');
+      return;
+    }
+
+    setIsListeningInput(true);
+    voiceService.startListening(language, {
+      onStart: () => setIsListeningInput(true),
+      onInterim: (text) => setInputPrompt(text),
+      onFinal: (text) => {
+        setInputPrompt(text);
+        setIsListeningInput(false);
+      },
+      onError: (err) => {
+        setIsListeningInput(false);
+        setErrorMsg(err);
+      },
+      onEnd: () => setIsListeningInput(false),
+    });
   };
 
   const starterQuestions = [
@@ -310,6 +399,46 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
 
                 <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
 
+                {/* Spoken Audio Controls for Advisor Guidance */}
+                {!isUser && voiceService.isTtsSupported() && (
+                  <div className="pt-2 flex items-center gap-1.5 border-t border-[#e2ebd9] mt-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleSpeak(m.id, m.content)}
+                      className="px-2 py-1 rounded-lg bg-[#eaf4e7] hover:bg-[#d8eed4] text-[#14492a] text-[11px] font-semibold flex items-center gap-1.5 transition"
+                      title="Listen to this advice aloud"
+                    >
+                      {speakingMsgId === m.id && ttsState === 'speaking' ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Pause Audio</span>
+                        </>
+                      ) : speakingMsgId === m.id && ttsState === 'paused' ? (
+                        <>
+                          <Play className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Resume Audio</span>
+                        </>
+                      ) : (
+                        <>
+                          <Volume2 className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>Listen Aloud</span>
+                        </>
+                      )}
+                    </button>
+
+                    {speakingMsgId === m.id && (
+                      <button
+                        type="button"
+                        onClick={handleStopSpeaking}
+                        className="p-1 rounded-lg text-slate-400 hover:text-slate-700 transition"
+                        title="Stop audio reading"
+                      >
+                        <Square className="w-3 h-3 text-slate-600 fill-slate-600" />
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 <div
                   className={`text-[9px] pt-1 text-right ${
                     isUser ? 'text-emerald-200' : 'text-slate-400'
@@ -377,6 +506,23 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
             disabled={isLoading}
             className="flex-1 px-3.5 py-2.5 bg-[#f5f8f3] border border-[#d4e4cc] rounded-2xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600/30 transition disabled:opacity-50"
           />
+
+          {/* Voice Input Button */}
+          {voiceService.isRecognitionSupported() && (
+            <button
+              type="button"
+              onClick={handleToggleVoiceInput}
+              className={`p-2.5 rounded-2xl transition flex items-center justify-center shrink-0 ${
+                isListeningInput
+                  ? 'bg-red-500 text-white animate-pulse'
+                  : 'bg-[#eaf3e7] text-[#14492a] hover:bg-[#dbebd7]'
+              }`}
+              title={isListeningInput ? 'Listening... Tap to stop' : 'Speak your question'}
+              aria-label="Speak your question"
+            >
+              {isListeningInput ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+          )}
 
           <button
             type="submit"

@@ -9,12 +9,14 @@ import {
   MapPin, 
   Layers,
   ShieldCheck,
-  Info
+  Info,
+  Mic
 } from 'lucide-react';
 import { FarmerProfile, CropRecord, NavigationTab, SupportedLanguage, PlantScanRecord } from '../types';
 import { TRANSLATIONS } from '../constants/translations';
 import { WeatherWidget } from '../components/WeatherWidget';
 import { cropHealthService } from '../services/cropHealthService';
+import { VOICE_LANGUAGE_MAP } from '../services/voiceService';
 
 interface HomeScreenProps {
   profile: FarmerProfile;
@@ -24,6 +26,7 @@ interface HomeScreenProps {
   onOpenFertilizer: () => void;
   language: SupportedLanguage;
   enquiriesCount?: number;
+  onOpenVoiceAssistant?: () => void;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -34,6 +37,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onOpenFertilizer,
   language,
   enquiriesCount = 0,
+  onOpenVoiceAssistant,
 }) => {
   const t = TRANSLATIONS[language]?.home || TRANSLATIONS.en.home;
 
@@ -87,7 +91,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               </span>
             </div>
 
-            {/* Crop Health derived from valid Plant Scans with AGROVA A+ Grading */}
+            {/* Crop Health derived from valid Plant Scans with AgriConnect A+ Grading */}
             <div className="bg-white/10 backdrop-blur-xs rounded-2xl p-2 sm:p-2.5 text-center border border-white/10 min-w-0 flex flex-col justify-center">
               <span className="text-[10px] text-emerald-200 uppercase tracking-wider block font-medium truncate">
                 {t.cropHealth || 'Crop Health'}
@@ -116,7 +120,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </div>
 
-      {/* Explanatory note on AGROVA scan-based grading */}
+      {/* Explanatory note on AgriConnect scan-based grading */}
       <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-2xl bg-[#edf6eb] border border-[#d2e5cc] text-[11px] text-[#1a4b2c] leading-relaxed">
         <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
         <div className="space-y-0.5">
@@ -137,6 +141,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <WeatherWidget
           locationName={`${profile.villageOrDistrict || 'Vijayapura'}, ${profile.state || 'Karnataka'}`}
           language={language}
+          crops={crops}
+          onOpenVoiceAssistant={onOpenVoiceAssistant}
         />
       </section>
 
@@ -146,7 +152,39 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <h2 className="text-xs sm:text-sm font-bold text-[#144225] uppercase tracking-wider font-display">
             {t.quickActions}
           </h2>
-          <span className="text-xs text-slate-500">Tap to open</span>
+        </div>
+        {/* AI Krishi Voice Advisor Banner */}
+        <div 
+          onClick={() => {
+            if (onOpenVoiceAssistant) {
+              onOpenVoiceAssistant();
+            } else {
+              onNavigateTab('soil-scan');
+            }
+          }}
+          className="p-4 rounded-3xl bg-gradient-to-r from-[#14492a] to-[#0f3820] text-white flex items-center justify-between gap-3 shadow-sm border border-[#1b5735] cursor-pointer hover:shadow-md transition group select-none"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-white/10 text-emerald-300 flex items-center justify-center shrink-0 border border-white/10 group-hover:scale-105 transition-transform">
+              <Mic className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm sm:text-base font-bold font-display truncate">
+                  AI Krishi Voice Advisor
+                </h3>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 shrink-0">
+                  {VOICE_LANGUAGE_MAP[language]?.nativeName || 'Voice Ready'}
+                </span>
+              </div>
+              <p className="text-xs text-emerald-100/90 mt-0.5 line-clamp-1">
+                Speak your question in {VOICE_LANGUAGE_MAP[language]?.langName} ({VOICE_LANGUAGE_MAP[language]?.nativeName}) & hear answers aloud
+              </p>
+            </div>
+          </div>
+          <div className="w-9 h-9 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0 group-hover:translate-x-1 transition-transform">
+            <ArrowRight className="w-4 h-4" />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">

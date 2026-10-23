@@ -81,9 +81,13 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-[#dce8d5] shadow-lg pb-safe transition-colors select-none"
       role="navigation"
-      aria-label="Bottom Navigation"
+      aria-label="AgriConnect main sections"
     >
-      <div className="max-w-lg mx-auto grid grid-cols-5 h-16 items-center px-1">
+      <div 
+        className="max-w-lg mx-auto grid grid-cols-5 h-16 sm:h-18 items-center px-1"
+        role="tablist"
+        aria-label="Main application tabs"
+      >
         {navItems.map((item) => {
           const isActive = activeTab === item.id;
           const Icon = item.icon;
@@ -91,41 +95,45 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => onTabChange(item.id)}
-              className={`relative flex flex-col items-center justify-center h-full min-h-[48px] py-1 transition-all duration-200 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl overflow-hidden ${
-                isActive
-                  ? 'text-[#0e4828]'
-                  : 'text-[#5c7362] hover:text-[#184628]'
-              }`}
+              role="tab"
               aria-selected={isActive}
-              aria-label={item.label}
+              aria-controls={`tabpanel-${item.id}`}
+              id={`tab-${item.id}`}
+              onClick={() => onTabChange(item.id)}
+              className={`relative flex flex-col items-center justify-center h-full min-h-[48px] py-1 transition-all duration-200 group focus:outline-none focus-visible:ring-3 focus-visible:ring-emerald-600 rounded-xl cursor-pointer ${
+                isActive
+                  ? 'text-[#0a381e]'
+                  : 'text-[#385141] hover:text-[#0a381e]'
+              }`}
+              aria-label={`${item.label} tab${isActive ? ', currently selected' : ''}`}
             >
               {/* Active Indicator Top Accent Bar */}
               {isActive && (
-                <span className="absolute top-0 w-8 h-1 bg-[#15803d] rounded-full transition-all" />
+                <span className="absolute top-0 w-8 h-1 bg-[#15803d] rounded-full transition-all" aria-hidden="true" />
               )}
 
               {/* Icon Container */}
               <div
-                className={`flex items-center justify-center w-8 h-6.5 sm:w-9 sm:h-7 rounded-lg transition-transform duration-200 shrink-0 ${
+                className={`flex items-center justify-center w-8 h-7 sm:w-9 sm:h-7.5 rounded-lg transition-transform duration-200 shrink-0 ${
                   isActive
-                    ? 'bg-[#e5f3e2] text-[#0d4a2b] scale-105 shadow-2xs'
+                    ? 'bg-[#e5f3e2] text-[#0a381e] scale-105 shadow-2xs'
                     : 'group-hover:bg-[#f1f7ef]'
                 }`}
               >
                 <Icon
                   className={`w-4.5 h-4.5 sm:w-5 sm:h-5 transition-transform shrink-0 ${
-                    isActive ? 'stroke-[2.5]' : 'stroke-[1.8]'
+                    isActive ? 'stroke-[2.6]' : 'stroke-[1.9]'
                   }`}
+                  aria-hidden="true"
                 />
               </div>
 
-              {/* Compact, Highly-Readable Label */}
+              {/* Compact, Highly-Readable Label with High Contrast */}
               <span
-                className={`text-[9px] sm:text-[10px] tracking-tight leading-tight mt-0.5 w-full text-center px-0.5 truncate transition-colors ${
+                className={`text-[10px] sm:text-xs tracking-tight leading-tight mt-0.5 w-full text-center px-0.5 truncate transition-colors ${
                   isActive
-                    ? 'font-bold text-[#0d4a2b]'
-                    : 'font-medium text-[#5a6e5f]'
+                    ? 'font-extrabold text-[#0a381e]'
+                    : 'font-semibold text-[#385141]'
                 }`}
                 title={item.label}
               >
