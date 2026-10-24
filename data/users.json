@@ -7,7 +7,10 @@
     "passwordHash": "f7c862b23ca38f96d5c7cfe18bd0f9daa62288b111c78facde00ca172480b2968ab978e5a329e4d309bac474010b3fbca776c0cab1a085e996f8933fd0daa93c",
     "salt": "af6f8a218ba7355955fda9a3845132bf",
     "createdAt": "2026-10-12T09:26:07.240Z",
-    "preferredLanguage": "kn"
+    "preferredLanguage": "kn",
+    "roles": [
+      "farmer"
+    ]
   },
   {
     "id": "usr-1791797173065-6dba501c",
@@ -17,7 +20,10 @@
     "passwordHash": "0543d60730e0c96f5887fa630f8657bea684dd610e6beda8f43f6cf751eff1977c3b6c543ee8379b11d99eb12fa91bf698f0074732fcbb388b354d758a0f7ffc",
     "salt": "a8b20bc2ad3ebc9dad06fa604c5ab9b6",
     "createdAt": "2026-10-12T09:26:13.066Z",
-    "preferredLanguage": "kn"
+    "preferredLanguage": "kn",
+    "roles": [
+      "buyer"
+    ]
   },
   {
     "id": "usr-1792062144088-223d9985",
@@ -27,7 +33,10 @@
     "passwordHash": "f80ee7a2b51fc0283a0e32502f84cfe6fcd80c12506eeb2d6fb0a2fc6be52cca897b2e248ee9fd789d21a00ef217b89860de96a2d370bf49940831e051206375",
     "salt": "b82a659e7a1931e9c83d8ba17a0ff182",
     "createdAt": "2026-10-15T11:02:24.088Z",
-    "preferredLanguage": "en"
+    "preferredLanguage": "en",
+    "roles": [
+      "farmer"
+    ]
   },
   {
     "id": "usr-1792137356665-ba9bbdfb",
@@ -37,7 +46,10 @@
     "passwordHash": "1c737616fc3c691c29fdc28ea9b9ad36910517dcc4b34b474f9a28577856e27415e76ec45c828de8c635af4e531c2cf0e01a1fff23fb0f495056235abd536be1",
     "salt": "76888dfff8e85561b928423c5bf0b13b",
     "createdAt": "2026-10-16T07:55:56.665Z",
-    "preferredLanguage": "en"
+    "preferredLanguage": "en",
+    "roles": [
+      "farmer"
+    ]
   },
   {
     "id": "usr-1792138080982-55e0a52a",
@@ -47,7 +59,10 @@
     "passwordHash": "206b309bd7a604ab1043e3f4970984bd03677c15649a3554a33406721ec8ef6842f38ef37f51c44379d4a174b3fb292860151d1d5ea5843213e8d6aab68b5f06",
     "salt": "25a904d952438631e46d3ce0a924f1e8",
     "createdAt": "2026-10-16T08:08:00.982Z",
-    "preferredLanguage": "en"
+    "preferredLanguage": "en",
+    "roles": [
+      "farmer"
+    ]
   },
   {
     "id": "usr-1792142185361-ca5a1e16",
@@ -57,6 +72,23 @@
     "passwordHash": "0a291208f8f17f9891a18416c6354e179e7cb0f8d203c6227f212cf95893d8e66a34480423502694dae6564027e48892ba9c23d419035086ce6d163ced35f483",
     "salt": "0ae5dc746876f4fa7d5d318a02155bce",
     "createdAt": "2026-10-16T09:16:25.361Z",
+    "preferredLanguage": "en",
+    "roles": [
+      "buyer"
+    ]
+  },
+  {
+    "id": "usr-1792863930345-6eb17903",
+    "name": "Suresh Kumar",
+    "email": "suresh.test.farmer@agriconnect.in",
+    "phone": "+91 98450 12345",
+    "role": "farmer",
+    "roles": [
+      "farmer"
+    ],
+    "passwordHash": "6be6174ee8ad83f2f9bc4602e978c916f33c6ceb5eccfc0635f962ce1382ec12440697316cb468953a3f09456dbd7a00ceed85d77c7229ed508fcc2d4b895217",
+    "salt": "87ca847cf60ab00ddd836889bc73eb1d",
+    "createdAt": "2026-10-24T17:45:30.345Z",
     "preferredLanguage": "en"
   }
 ]

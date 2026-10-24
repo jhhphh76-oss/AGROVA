@@ -126,12 +126,31 @@ class AuthService {
     }
 
     if (!parsed) {
+      if (res.status === 404) {
+        return {
+          ok: false,
+          data: null,
+          errorMessage: 'Backend service unreachable (HTTP 404). API endpoint not found on server.',
+        };
+      }
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        return {
+          ok: false,
+          data: null,
+          errorMessage: `Gateway error (HTTP ${res.status}). Serverless function may have timed out or failed to start.`,
+        };
+      }
+      if (res.status >= 500) {
+        return {
+          ok: false,
+          data: null,
+          errorMessage: `Server error (HTTP ${res.status}). An internal error occurred. Please try again shortly.`,
+        };
+      }
       return {
         ok: false,
         data: null,
-        errorMessage: res.status >= 500
-          ? 'Server temporarily unavailable. Please try again shortly.'
-          : fallbackError,
+        errorMessage: fallbackError,
       };
     }
 
@@ -143,6 +162,8 @@ class AuthService {
         errorMessage = parsed.error.message;
       } else if (typeof parsed.message === 'string') {
         errorMessage = parsed.message;
+      } else if (parsed.errorDetails && typeof parsed.errorDetails.message === 'string') {
+        errorMessage = parsed.errorDetails.message;
       } else {
         errorMessage = fallbackError;
       }
@@ -183,7 +204,13 @@ class AuthService {
       }
       return { success: false, error: result.errorMessage || 'Registration failed' };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Network error during registration.' };
+      const isNetwork = err?.name === 'TypeError' || err?.message?.includes('fetch') || err?.message?.includes('Network');
+      return {
+        success: false,
+        error: isNetwork
+          ? 'Network error: Unable to reach the server. Please check your internet connection.'
+          : (err.message || 'Network error during registration.')
+      };
     }
   }
 
@@ -207,7 +234,13 @@ class AuthService {
       }
       return { success: false, error: result.errorMessage || 'Invalid credentials' };
     } catch (err: any) {
-      return { success: false, error: err.message || 'Network error during sign in.' };
+      const isNetwork = err?.name === 'TypeError' || err?.message?.includes('fetch') || err?.message?.includes('Network');
+      return {
+        success: false,
+        error: isNetwork
+          ? 'Network error: Unable to reach the server. Please check your internet connection.'
+          : (err.message || 'Network error during sign in.')
+      };
     }
   }
 

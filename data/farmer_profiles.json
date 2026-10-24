@@ -40,5 +40,19 @@
     "preferredTempUnit": "celsius",
     "totalFarmArea": 5,
     "primarySoilType": "Black Soil (Regur)"
+  },
+  "usr-1792863930345-6eb17903": {
+    "userId": "usr-1792863930345-6eb17903",
+    "name": "Suresh Kumar",
+    "farmName": "Suresh Kumar's Farm",
+    "villageOrDistrict": "Dharwad",
+    "state": "Karnataka",
+    "contactNumber": "+91 98450 12345",
+    "preferredLanguage": "en",
+    "preferredAreaUnit": "acres",
+    "preferredWeightUnit": "quintal",
+    "preferredTempUnit": "celsius",
+    "totalFarmArea": 4.5,
+    "primarySoilType": "Black Soil (Regur)"
   }
 }

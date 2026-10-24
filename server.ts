@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
@@ -14,10 +15,40 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const isProduction = process.env.NODE_ENV === 'production';
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.SERVERLESS
+);
 
 // Support JSON bodies up to 15MB for mobile camera photo uploads
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ limit: '15mb', extended: true }));
+
+// Normalize URL for Vercel serverless rewrites and stripped /api prefixes
+app.use((req, _res, next) => {
+  let targetUrl = req.url || '';
+
+  // If targetUrl is bare '/api' or '/' or empty, recover full path from headers if present
+  if (targetUrl === '/api' || targetUrl === '/' || targetUrl === '') {
+    const rawOriginal = (req as any).originalUrl || (req.headers['x-forwarded-uri'] as string) || (req.headers['x-matched-path'] as string);
+    if (typeof rawOriginal === 'string' && rawOriginal.length > 1 && rawOriginal !== '/api') {
+      targetUrl = rawOriginal;
+    }
+  }
+
+  // If path does not start with /api, but matches one of our API route prefixes, normalize to /api/*
+  if (targetUrl && !targetUrl.startsWith('/api')) {
+    const isApiPath = /^\/(auth|crop-timeline|marketplace|farming-advisory|farmer|buyer|health|crops|observations|scans|advisor)/.test(targetUrl);
+    if (isApiPath) {
+      targetUrl = '/api' + targetUrl;
+    }
+  }
+
+  req.url = targetUrl;
+  next();
+});
 
 // Ensure malformed JSON requests to API return consistent JSON errors rather than Express HTML
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -90,7 +121,13 @@ function validateIndianPhoneNumber(phone: unknown): { valid: boolean; normalized
 }
 
 // Persistent Data Storage Directory
-const DATA_DIR = path.join(__dirname, 'data');
+const BUNDLED_DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.STORAGE_DIR
+  ? process.env.STORAGE_DIR
+  : isServerless
+  ? path.join(os.tmpdir(), 'agriconnect-data')
+  : BUNDLED_DATA_DIR;
+
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const RESETS_FILE = path.join(DATA_DIR, 'password_resets.json');
@@ -105,8 +142,40 @@ const MARKETPLACE_FILE = path.join(DATA_DIR, 'marketplace.json');
 const CROP_TIMELINES_FILE = path.join(DATA_DIR, 'crop_timelines.json');
 
 function ensureDataDir(): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    // In serverless environments, seed initial files from bundled data if they don't exist in /tmp
+    if (DATA_DIR !== BUNDLED_DATA_DIR && fs.existsSync(BUNDLED_DATA_DIR)) {
+      const seedFiles = [
+        'users.json',
+        'sessions.json',
+        'password_resets.json',
+        'farmer_profiles.json',
+        'buyer_profiles.json',
+        'crops.json',
+        'observations.json',
+        'soil_scans.json',
+        'plant_scans.json',
+        'advisor_conversations.json',
+        'marketplace.json',
+        'crop_timelines.json',
+      ];
+      for (const file of seedFiles) {
+        const targetPath = path.join(DATA_DIR, file);
+        const sourcePath = path.join(BUNDLED_DATA_DIR, file);
+        if (!fs.existsSync(targetPath) && fs.existsSync(sourcePath)) {
+          try {
+            fs.copyFileSync(sourcePath, targetPath);
+          } catch (copyErr) {
+            console.warn(`Could not seed ${file} into temporary serverless storage:`, copyErr);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`Failed to ensure data directory at ${DATA_DIR}:`, err);
   }
 }
 
@@ -115,6 +184,13 @@ function readJsonFile<T>(filePath: string, fallback: T): T {
     ensureDataDir();
     if (fs.existsSync(filePath)) {
       const raw = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(raw);
+    }
+    // Fallback: If not present in runtime DATA_DIR (e.g. cold start), attempt reading from bundled directory
+    const fileName = path.basename(filePath);
+    const bundledPath = path.join(BUNDLED_DATA_DIR, fileName);
+    if (bundledPath !== filePath && fs.existsSync(bundledPath)) {
+      const raw = fs.readFileSync(bundledPath, 'utf-8');
       return JSON.parse(raw);
     }
   } catch (err) {
@@ -127,8 +203,22 @@ function writeJsonFile<T>(filePath: string, data: T): void {
   try {
     ensureDataDir();
     fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf-8');
-  } catch (err) {
+  } catch (err: any) {
     console.error(`Error writing ${filePath}:`, err);
+    // If read-only filesystem error is thrown on Vercel, fallback to writing in os.tmpdir()
+    if (err?.code === 'EROFS' && !filePath.startsWith(os.tmpdir())) {
+      try {
+        const tmpTarget = path.join(os.tmpdir(), 'agriconnect-data', path.basename(filePath));
+        const tmpDir = path.dirname(tmpTarget);
+        if (!fs.existsSync(tmpDir)) {
+          fs.mkdirSync(tmpDir, { recursive: true });
+        }
+        fs.writeFileSync(tmpTarget, JSON.stringify(data, null, 2), 'utf-8');
+        console.warn(`Redirected write from read-only ${filePath} to temporary storage ${tmpTarget}. Note: Temporary storage is ephemeral on serverless.`);
+      } catch (fallbackErr) {
+        console.error(`Fallback write to ${os.tmpdir()} also failed:`, fallbackErr);
+      }
+    }
   }
 }
 
@@ -152,6 +242,13 @@ function generateSecureToken(): string {
 
 function generateResetCode(): string {
   return crypto.randomBytes(4).toString('hex').toUpperCase(); // 8-char code
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg = 'Operation timed out'): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(errorMsg)), ms))
+  ]);
 }
 
 // ==================== AUTH TYPES & STORES ====================
@@ -519,11 +616,19 @@ function saveMarketplaceData(data: MarketplaceStore): void {
 }
 
 // Health / status endpoint
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req, res) => {
   res.json({
     status: 'ok',
+    service: 'AgriConnect API',
+    uptime: process.uptime(),
     hasApiKey: Boolean(process.env.GEMINI_API_KEY),
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    serverless: isServerless,
+    storage: {
+      dir: DATA_DIR,
+      isTmp: DATA_DIR.startsWith(os.tmpdir()),
+    },
   });
 });
 
@@ -2677,20 +2782,23 @@ Return STRICT JSON matching this schema:
 
     for (const modelName of modelsToTry) {
       try {
-        const result = await ai.models.generateContent({
-          model: modelName,
-          contents: [
-            {
-              text: 'Generate the farming advisory JSON according to your system instructions.',
+        const result = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                text: 'Generate the farming advisory JSON according to your system instructions.',
+              },
+            ],
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: 'application/json',
+              temperature: 0.2,
             },
-          ],
-          config: {
-            systemInstruction: systemPrompt,
-            responseMimeType: 'application/json',
-            temperature: 0.2,
-          },
-        });
-        if (result.text) {
+          }),
+          5000
+        );
+        if (result && result.text) {
           responseText = result.text.trim();
           break;
         }
@@ -2963,16 +3071,19 @@ Return STRICT JSON matching:
     let responseText = '';
     for (const modelName of modelsToTry) {
       try {
-        const result = await ai.models.generateContent({
-          model: modelName,
-          contents: [{ text: 'Generate the complete Crop Timeline JSON for Indian agriculture.' }],
-          config: {
-            systemInstruction: systemPrompt,
-            responseMimeType: 'application/json',
-            temperature: 0.2
-          }
-        });
-        if (result.text) {
+        const result = await withTimeout(
+          ai.models.generateContent({
+            model: modelName,
+            contents: [{ text: 'Generate the complete Crop Timeline JSON for Indian agriculture.' }],
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: 'application/json',
+              temperature: 0.2
+            }
+          }),
+          5000
+        );
+        if (result && result.text) {
           responseText = result.text.trim();
           break;
         }
@@ -3043,8 +3154,6 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   next(err);
 });
 
-
-
 // Setup Vite middleware in dev or static server in prod
 async function startServer() {
   if (!isProduction) {
@@ -3066,4 +3175,11 @@ async function startServer() {
   });
 }
 
-startServer();
+// In serverless environments (like Vercel / AWS Lambda), the hosting provider handles invocation;
+// we only call startServer() when running as a persistent standalone Node process (dev/prod).
+if (!isServerless) {
+  startServer();
+}
+
+export default app;
+export { app };
